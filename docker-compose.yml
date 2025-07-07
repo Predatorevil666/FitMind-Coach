@@ -1,19 +1,71 @@
 version: '3.8'
 
 services:
-  bot:
+  db:
+    image: postgres:15-alpine
+    container_name: fitmind-coach-db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-fitmind}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: fitmind-coach-bot
+      dockerfile: Dockerfile.api
+    container_name: fitmind-coach-api
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
       - ./.env:/app/.env
     networks:
-      - bot-network
+      - app-network
     environment:
-      - TZ=Europe/Moscow
+      - TZ=${TZ:-Europe/Moscow}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/fitmind}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: fitmind-coach-bot
+    restart: unless-stopped
+    command: python -m bot.main
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    networks:
+      - app-network
+    environment:
+      - TZ=${TZ:-Europe/Moscow}
+      - API_URL=${API_URL:-http://api:8000/api/v1}
+      - BOT_TOKEN=${TG_TOKEN}
+      - BOT_ADMIN_ID=${BOT_ADMIN_ID}
+      - DEBUG=${DEBUG:-False}
+    depends_on:
+      - api
+      - db
     # Проверка работоспособности контейнера
     # Healthcheck позволяет Docker автоматически определять, работает ли сервис корректно
     healthcheck:
@@ -29,5 +81,8 @@ services:
       start_period: 10s
 
 networks:
-  bot-network:
+  app-network:
     driver: bridge
+
+volumes:
+  postgres_data:

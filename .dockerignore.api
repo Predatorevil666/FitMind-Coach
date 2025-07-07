@@ -1,0 +1,64 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Виртуальные окружения
+.venv
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Логи
+logs/
+*.log
+
+# Локальные конфигурации (оставляем .env для использования в контейнере)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Кеш
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+.dockerignore
+.dockerignore.api
+Dockerfile
+Dockerfile.api
+docker-compose.yml
+
+# Другие
+README.md
+LICENSE
+
+# Специфичные для бота файлы (не нужны для API)
+bot/
