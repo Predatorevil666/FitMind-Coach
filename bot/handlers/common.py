@@ -2,6 +2,7 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from bot.handlers.advice import cmd_advice
 from bot.keyboards.reply import (
     lab_kb,
     main_kb,
@@ -10,6 +11,7 @@ from bot.keyboards.reply import (
     workout_kb,
 )
 from bot.logger import logger
+from bot.utils import get_user_id
 
 router = Router()
 
@@ -26,11 +28,57 @@ SECTION_KEYBOARDS = {
 @router.message(F.text == "🔙 Назад")
 async def back_to_main_menu(message: Message):
     """Обработчик кнопки 'Назад'."""
-    logger.info(f"Пользователь {message.from_user.id} вернулся в главное меню")
+    user_id = get_user_id(message)
+    logger.info(f"Пользователь {user_id} вернулся в главное меню")
     await message.answer(
         "Вы вернулись в главное меню.",
         reply_markup=main_kb,
     )
+
+
+# Обработчик для кнопки "Тренировки" в главном меню
+@router.message(F.text == "🏋️‍♂️ Тренировки")
+async def workout_button(message: Message):
+    """Обработчик кнопки 'Тренировки'."""
+    user_id = get_user_id(message)
+    logger.info(f"Пользователь {user_id} перешел в раздел тренировок")
+    await message.answer(
+        "Раздел тренировок. Выберите действие:",
+        reply_markup=workout_kb,
+    )
+
+
+# Обработчик для кнопки "Питание" в главном меню
+@router.message(F.text == "🍽 Питание")
+async def meal_button(message: Message):
+    """Обработчик кнопки 'Питание'."""
+    user_id = get_user_id(message)
+    logger.info(f"Пользователь {user_id} перешел в раздел питания")
+    await message.answer(
+        "Раздел питания. Выберите действие:",
+        reply_markup=meal_kb,
+    )
+
+
+# Обработчик для кнопки "Лабораторные данные" в главном меню
+@router.message(F.text == "🔬 Лабораторные данные")
+async def lab_button(message: Message):
+    """Обработчик кнопки 'Лабораторные данные'."""
+    user_id = get_user_id(message)
+    logger.info(f"Пользователь {user_id} перешел в раздел лабораторных данных")
+    await message.answer(
+        "Раздел лабораторных данных. Выберите действие:",
+        reply_markup=lab_kb,
+    )
+
+
+# Обработчик для кнопки "Получить совет" в главном меню
+@router.message(F.text == "💡 Получить совет")
+async def advice_button(message: Message, state: FSMContext):
+    """Обработчик кнопки 'Получить совет'."""
+    user_id = get_user_id(message)
+    logger.info(f"Пользователь {user_id} нажал кнопку 'Получить совет'")
+    await cmd_advice(message, state=state)
 
 
 # Обработчик для отмены операции
@@ -54,12 +102,11 @@ async def cancel_operation(message: Message, state: FSMContext):
         await state.clear()
 
         # Выбираем соответствующую клавиатуру
-        keyboard = SECTION_KEYBOARDS.get(section, main_kb)
+        keyboard = SECTION_KEYBOARDS.get(section or "", main_kb)
 
+        user_id = get_user_id(message)
         logger.info(
-            f"Пользователь {message.from_user.id} отменил операцию в разделе {
-                section
-            }"
+            f"Пользователь {user_id} отменил операцию в разделе {section}"
         )
         await message.answer(
             "Операция отменена.",

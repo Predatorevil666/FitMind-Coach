@@ -76,7 +76,8 @@ async def cmd_start(message: Message, **kwargs) -> None:
                 "Для начала работы тебе нужно зарегистрироваться в системе:\n"
                 "▫️ Используй команду /register для регистрации\n"
                 "▫️ Если у тебя уже есть аккаунт, используй /login\n\n"
-                "После авторизации используй команду /create_profile для создания "
+                "После авторизации используй команду "
+                "/create_profile для создания "
                 "профиля с помощью пошаговой формы."
             )
     else:
@@ -206,11 +207,14 @@ async def help_button(message: Message) -> None:
 
 @router.message(Command("workouts_count"))
 async def cmd_workouts_count(message: Message) -> None:
-    """Обработчик команды /workouts_count - показывает статистику тренировок."""
+    """
+    Обработчик команды /workouts_count - показывает статистику тренировок.
+    """
     user = message.from_user
     if user:
         logger.info(
-            f"Получена команда /workouts_count от пользователя {user.username} "
+            f"Получена команда /workouts_count "
+            f"от пользователя {user.username} "
             f"({user.id})"
         )
 
@@ -227,7 +231,8 @@ async def cmd_workouts_count(message: Message) -> None:
 
         if not profile:
             await message.answer(
-                "Профиль не найден. Для просмотра статистики необходимо создать профиль."
+                "Профиль не найден. Для просмотра статистики необходимо "
+                "создать профиль."
             )
             return
 
@@ -416,7 +421,8 @@ async def cmd_status(message: Message) -> None:
         telegram_auth_result = await user_api.telegram_auth()
         if telegram_auth_result:
             logger.info(
-                f"Пользователь {telegram_id} автоматически авторизован через Telegram"
+                f"Пользователь {telegram_id} автоматически"
+                f"авторизован через Telegram"
             )
 
         # Проверяем токен

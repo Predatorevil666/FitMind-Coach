@@ -2,87 +2,102 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:15-alpine
-    container_name: fitmind-coach-db
+    image: postgres:latest
+    container_name: fitmind_db
     restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    networks:
-      - app-network
     environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-fitmind}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs:/var/log/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fitmind}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+    networks:
+      - app-network
 
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
-    container_name: fitmind-coach-api
+      dockerfile: api/Dockerfile
+    container_name: fitmind_api
     restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs
+      - ./api:/app/api
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./Makefile:/app/Makefile
       - ./.env:/app/.env
-    networks:
-      - app-network
-    environment:
-      - TZ=${TZ:-Europe/Moscow}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/fitmind}
-    ports:
-      - "${API_PORT:-8000}:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/healthz || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 40s
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: fitmind_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./logs:/var/log/nginx
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app-network
 
   bot:
     build:
       context: .
-      dockerfile: Dockerfile.bot
-    container_name: fitmind-coach-bot
+      dockerfile: bot/Dockerfile
+    container_name: fitmind_bot
     restart: unless-stopped
-    command: python -m bot.main
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_URL=${API_URL}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    env_file:
+      - .env
     volumes:
       - ./logs:/app/logs
+      - ./bot:/app/bot
       - ./.env:/app/.env
+    depends_on:
+      api:
+        condition: service_healthy
     networks:
       - app-network
-    environment:
-      - TZ=${TZ:-Europe/Moscow}
-      - API_URL=${API_URL:-http://api:8000/api/v1}
-      - BOT_TOKEN=${TG_TOKEN}
-      - BOT_ADMIN_ID=${BOT_ADMIN_ID}
-      - DEBUG=${DEBUG:-False}
-    depends_on:
-      - api
-      - db
-    # Проверка работоспособности контейнера
-    # Healthcheck позволяет Docker автоматически определять, работает ли сервис корректно
-    healthcheck:
-      # Команда проверки: возвращает успех (0), если файл логов существует и не пустой
-      test: ["CMD", "python", "-c", "import os, sys; sys.exit(0 if os.path.exists('/app/logs/bot.log') and os.path.getsize('/app/logs/bot.log') > 0 else 1)"]
-      # Интервал между проверками
-      interval: 30s
-      # Таймаут ожидания ответа от проверки
-      timeout: 10s
-      # Количество повторных попыток перед признанием контейнера нездоровым
-      retries: 3
-      # Время ожидания перед началом проверок (для инициализации)
-      start_period: 10s
+
+volumes:
+  postgres_data:
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres_data:

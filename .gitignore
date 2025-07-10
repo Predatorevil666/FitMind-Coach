@@ -45,7 +45,9 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.backup.bridge
 
 # Cache
 .mypy_cache/
 .ruff_cache/
+fastapi.db

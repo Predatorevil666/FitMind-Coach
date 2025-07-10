@@ -1,5 +1,7 @@
 import re
 
+from typing import cast
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -98,9 +100,9 @@ async def parse_lab_text(message: Message):
     ref_max = LAB_REFERENCES[lab_name]["max"]
 
     # Определяем статус значения (норма, повышен, понижен)
-    if value < ref_min:
+    if value < cast(float, ref_min):
         status = LAB_STATUS["low"]
-    elif value > ref_max:
+    elif value > cast(float, ref_max):
         status = LAB_STATUS["high"]
     else:
         status = LAB_STATUS["normal"]
@@ -310,9 +312,9 @@ async def process_lab_notes(message: Message, state: FSMContext):
     ref_min = data["reference_min"]
     ref_max = data["reference_max"]
 
-    if value < ref_min:
+    if value < cast(float, ref_min):
         status = LAB_STATUS["low"]
-    elif value > ref_max:
+    elif value > cast(float, ref_max):
         status = LAB_STATUS["high"]
     else:
         status = LAB_STATUS["normal"]

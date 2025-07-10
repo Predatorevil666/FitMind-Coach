@@ -98,13 +98,16 @@ async def process_password(message: Message, state: FSMContext):
             auth_result = await user_api.telegram_auth()
             if auth_result:
                 await message.answer(
-                    "✅ Telegram аккаунт успешно привязан и вы вошли в систему!\n"
-                    "Теперь вы можете использовать бота без повторной авторизации.",
+                    "✅ Telegram аккаунт успешно привязан "
+                    "и вы вошли в систему!\n"
+                    "Теперь вы можете использовать бота без повторной "
+                    "авторизации.",
                     reply_markup=main_kb,
                 )
             else:
                 await message.answer(
-                    "✅ Telegram аккаунт привязан, но возникла ошибка при авторизации.\n"
+                    "✅ Telegram аккаунт привязан, но возникла ошибка "
+                    "при авторизации.\n"
                     "Попробуйте команду /start снова.",
                     reply_markup=main_kb,
                 )
@@ -114,7 +117,8 @@ async def process_password(message: Message, state: FSMContext):
             if result:
                 await message.answer(
                     "✅ Вы успешно вошли в систему!\n"
-                    "⚠️ Telegram аккаунт не был привязан. Возможно, он уже привязан к другому аккаунту.",
+                    "⚠️ Telegram аккаунт не был привязан. "
+                    "Возможно, он уже привязан к другому аккаунту.",
                     reply_markup=main_kb,
                 )
             else:
@@ -294,7 +298,8 @@ async def process_password_confirm(message: Message, state: FSMContext):
             else:
                 await message.answer(
                     "✅ Вы успешно зарегистрировались!\n\n"
-                    "Теперь вы можете войти в систему с помощью команды /login",
+                    "Теперь вы можете войти в систему с помощью команды "
+                    "/login",
                     reply_markup=main_kb,
                 )
         else:
@@ -335,14 +340,10 @@ async def cmd_logout(message: Message):
             )
         else:
             await message.answer(
-                "❌ Не удалось выйти из системы. Возможно, вы не были авторизованы.",
+                "❌ Не удалось выйти из системы. "
+                "Возможно, вы не были авторизованы.",
                 reply_markup=main_kb,
             )
-    else:
-        await message.answer(
-            "❌ Ошибка получения данных пользователя.",
-            reply_markup=main_kb,
-        )
 
 
 # Обработчик для отмены операции

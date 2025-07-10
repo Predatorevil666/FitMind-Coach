@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import aiohttp
 
@@ -17,7 +17,7 @@ class APIClient:
             base_url: Базовый URL API.
         """
         self.base_url = base_url
-        self.session = None
+        self.session: Optional[aiohttp.ClientSession] = None
         # Словарь для хранения токенов по Telegram ID
         self.user_tokens: dict[int, str] = {}
 
@@ -57,11 +57,15 @@ class APIClient:
             bool: True, если пользователь существует, иначе False.
         """
         await self.start_session()
+        if not self.session:
+            return True
+
         try:
             # Проверяем, является ли это email (содержит @ и .)
             is_email = "@" in username_or_email and "." in username_or_email
 
-            # Формируем параметры запроса в зависимости от типа идентификатора
+            # Формируем параметры запроса в зависимости от типа
+            # идентификатора
             params = (
                 {"email": username_or_email}
                 if is_email
@@ -75,22 +79,25 @@ class APIClient:
                     data = await response.json()
                     exists = data.get("exists", False)
                     logger.info(
-                        f"Проверка существования пользователя {username_or_email}: {exists}"
+                        f"Проверка существования пользователя "
+                        f"{username_or_email}: {exists}"
                     )
                     return exists
                 else:
                     # Если API не поддерживает такой метод, считаем что
                     # проверка не удалась
                     logger.warning(
-                        f"API не поддерживает проверку существования пользователя: "
-                        f"{response.status}"
+                        f"API не поддерживает проверку существования "
+                        f"пользователя: {response.status}"
                     )
-                    return True  # По умолчанию считаем, что пользователь существует
+                    # По умолчанию считаем, что пользователь существует
+                    return True
         except Exception as e:
             logger.error(
                 f"Ошибка при проверке существования пользователя: {e}"
             )
-            return True  # По умолчанию считаем, что пользователь существует
+            # По умолчанию считаем, что пользователь существует
+            return True
 
     async def login(self, email: str, password: str, telegram_id: int) -> bool:
         """
@@ -254,14 +261,15 @@ class APIClient:
             ) as response:
                 if response.status == 200:
                     logger.info(
-                        f"Успешная привязка Telegram ID {telegram_id} к аккаунту {email}"
+                        f"Успешная привязка Telegram ID {telegram_id} "
+                        f"к аккаунту {email}"
                     )
                     return True
                 else:
                     error_text = await response.text()
                     logger.error(
-                        f"Ошибка привязки Telegram ID {telegram_id} к аккаунту {email}: "
-                        f"{response.status}, {error_text}"
+                        f"Ошибка привязки Telegram ID {telegram_id} "
+                        f"к аккаунту {email}: {response.status}, {error_text}"
                     )
                     return False
         except Exception as e:
@@ -366,7 +374,8 @@ class APIClient:
     # Методы для работы с профилем
     async def get_profile(self, telegram_id: int) -> Optional[dict[str, Any]]:
         """Получение профиля пользователя."""
-        return await self._request("GET", "/users/me/profile", telegram_id)
+        result = await self._request("GET", "/users/me/profile", telegram_id)
+        return cast(Optional[dict[str, Any]], result)
 
     async def create_profile(
         self, telegram_id: int, profile_data: dict[str, Any]
@@ -379,11 +388,13 @@ class APIClient:
             profile_data: Данные профиля.
 
         Returns:
-            Optional[dict[str, Any]]: Созданный профиль или None в случае ошибки.
+            Optional[dict[str, Any]]: Созданный профиль или None в случае
+                ошибки.
         """
-        return await self._request(
+        result = await self._request(
             "POST", "/users/me/profile", telegram_id, data=profile_data
         )
+        return cast(Optional[dict[str, Any]], result)
 
     async def update_profile(
         self, telegram_id: int, profile_data: dict[str, Any]
@@ -396,109 +407,157 @@ class APIClient:
             profile_data: Данные профиля для обновления.
 
         Returns:
-            Optional[dict[str, Any]]: Обновленный профиль или None в случае ошибки.
+            Optional[dict[str, Any]]: Обновленный профиль или None в случае
+                ошибки.
         """
-        return await self._request(
+        result = await self._request(
             "PUT", "/users/me/profile", telegram_id, data=profile_data
         )
+        return cast(Optional[dict[str, Any]], result)
 
     # Методы для работы с тренировками
     async def get_workouts(
         self, telegram_id: int, skip: int = 0, limit: int = 10
     ) -> Optional[list[dict[str, Any]]]:
         """Получение списка тренировок."""
-        return await self._request(
+        result = await self._request(
             "GET",
             "/workouts",
             telegram_id,
             params={"skip": skip, "limit": limit},
         )
+        return cast(Optional[list[dict[str, Any]]], result)
 
     async def create_workout(
         self, telegram_id: int, workout_data: dict[str, Any]
     ) -> Optional[dict[str, Any]]:
         """Создание новой тренировки."""
-        return await self._request(
+        result = await self._request(
             "POST", "/workouts", telegram_id, data=workout_data
         )
+        return cast(Optional[dict[str, Any]], result)
 
-    async def get_workout(self, workout_id: int) -> Optional[dict[str, Any]]:
+    async def get_workout(
+        self, workout_id: int, telegram_id: int
+    ) -> Optional[dict[str, Any]]:
         """Получение информации о тренировке."""
-        return await self._request("GET", f"/workouts/{workout_id}")
+        result = await self._request(
+            "GET", f"/workouts/{workout_id}", telegram_id
+        )
+        return cast(Optional[dict[str, Any]], result)
 
     async def update_workout(
-        self, workout_id: int, workout_data: dict[str, Any]
+        self,
+        workout_id: int,
+        workout_data: dict[str, Any],
+        telegram_id: int,
     ) -> Optional[dict[str, Any]]:
         """Обновление тренировки."""
-        return await self._request(
-            "PUT", f"/workouts/{workout_id}", data=workout_data
+        result = await self._request(
+            "PUT", f"/workouts/{workout_id}", telegram_id, data=workout_data
         )
+        return cast(Optional[dict[str, Any]], result)
 
     async def delete_workout(
-        self, workout_id: int
+        self, workout_id: int, telegram_id: int
     ) -> Optional[dict[str, Any]]:
         """Удаление тренировки."""
-        return await self._request("DELETE", f"/workouts/{workout_id}")
+        result = await self._request(
+            "DELETE", f"/workouts/{workout_id}", telegram_id
+        )
+        return cast(Optional[dict[str, Any]], result)
 
     # Методы для работы с питанием
     async def get_meals(
         self, telegram_id: int, skip: int = 0, limit: int = 10
     ) -> Optional[list[dict[str, Any]]]:
         """Получение списка приемов пищи."""
-        return await self._request(
+        result = await self._request(
             "GET", "/meals", telegram_id, params={"skip": skip, "limit": limit}
         )
+        return cast(Optional[list[dict[str, Any]]], result)
 
     async def create_meal(
         self, telegram_id: int, meal_data: dict[str, Any]
     ) -> Optional[dict[str, Any]]:
         """Создание нового приема пищи."""
-        return await self._request(
+        result = await self._request(
             "POST", "/meals", telegram_id, data=meal_data
         )
+        return cast(Optional[dict[str, Any]], result)
 
-    async def get_meal(self, meal_id: int) -> Optional[dict[str, Any]]:
+    async def get_meal(
+        self, meal_id: int, telegram_id: int
+    ) -> Optional[dict[str, Any]]:
         """Получение информации о приеме пищи."""
-        return await self._request("GET", f"/meals/{meal_id}")
+        result = await self._request("GET", f"/meals/{meal_id}", telegram_id)
+        return cast(Optional[dict[str, Any]], result)
 
     async def update_meal(
-        self, meal_id: int, meal_data: dict[str, Any]
+        self,
+        meal_id: int,
+        meal_data: dict[str, Any],
+        telegram_id: int,
     ) -> Optional[dict[str, Any]]:
         """Обновление приема пищи."""
-        return await self._request("PUT", f"/meals/{meal_id}", data=meal_data)
+        result = await self._request(
+            "PUT", f"/meals/{meal_id}", telegram_id, data=meal_data
+        )
+        return cast(Optional[dict[str, Any]], result)
 
-    async def delete_meal(self, meal_id: int) -> Optional[dict[str, Any]]:
+    async def delete_meal(
+        self, meal_id: int, telegram_id: int
+    ) -> Optional[dict[str, Any]]:
         """Удаление приема пищи."""
-        return await self._request("DELETE", f"/meals/{meal_id}")
+        result = await self._request(
+            "DELETE", f"/meals/{meal_id}", telegram_id
+        )
+        return cast(Optional[dict[str, Any]], result)
 
-    # Методы для работы с анализами
+    # Методы для работы с лабораторными анализами
     async def get_lab_results(
         self, telegram_id: int, skip: int = 0, limit: int = 10
     ) -> Optional[list[dict[str, Any]]]:
         """Получение списка результатов анализов."""
-        return await self._request(
+        result = await self._request(
             "GET", "/lab", telegram_id, params={"skip": skip, "limit": limit}
         )
+        return cast(Optional[list[dict[str, Any]]], result)
 
     async def create_lab_result(
         self, telegram_id: int, lab_data: dict[str, Any]
     ) -> Optional[dict[str, Any]]:
         """Создание нового результата анализа."""
-        return await self._request("POST", "/lab", telegram_id, data=lab_data)
+        result = await self._request(
+            "POST", "/lab", telegram_id, data=lab_data
+        )
+        return cast(Optional[dict[str, Any]], result)
 
-    async def get_lab_result(self, lab_id: int) -> Optional[dict[str, Any]]:
+    async def get_lab_result(
+        self, lab_id: int, telegram_id: int
+    ) -> Optional[dict[str, Any]]:
         """Получение информации о результате анализа."""
-        return await self._request("GET", f"/lab/{lab_id}")
+        result = await self._request("GET", f"/lab/{lab_id}", telegram_id)
+        return cast(Optional[dict[str, Any]], result)
 
     async def update_lab_result(
-        self, lab_id: int, lab_data: dict[str, Any]
+        self,
+        lab_id: int,
+        lab_data: dict[str, Any],
+        telegram_id: int,
     ) -> Optional[dict[str, Any]]:
         """Обновление результата анализа."""
-        return await self._request("PUT", f"/lab/{lab_id}", data=lab_data)
+        result = await self._request(
+            "PUT", f"/lab/{lab_id}", telegram_id, data=lab_data
+        )
+        return cast(Optional[dict[str, Any]], result)
 
-    async def delete_lab_result(self, lab_id: int) -> Optional[dict[str, Any]]:
+    async def delete_lab_result(
+        self, lab_id: int, telegram_id: int
+    ) -> Optional[dict[str, Any]]:
         """Удаление результата анализа."""
-        return await self._request("DELETE", f"/lab/{lab_id}")
+        result = await self._request("DELETE", f"/lab/{lab_id}", telegram_id)
+        return cast(Optional[dict[str, Any]], result)
 
 
 # Создаем глобальный экземпляр клиента API

@@ -26,7 +26,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Копирование кода приложения
+# Копирование всего проекта для доступа к модулю bot
 COPY . /app/
 
 # Установка переменной окружения для Python
@@ -35,8 +35,5 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 # Создание директории для логов
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Экспонирование порта
-EXPOSE 8003
-
-# Запуск API
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8003"]
+# Запуск бота
+CMD ["python", "-m", "bot.main"]

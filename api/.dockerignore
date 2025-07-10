@@ -51,16 +51,12 @@ logs/
 
 # Docker
 .dockerignore
-.dockerignore.api
-.dockerignore.bot
 Dockerfile
-Dockerfile.api
-Dockerfile.bot
 docker-compose.yml
 
 # Другие
 README.md
 LICENSE
 
-# Специфичные для API файлы (не нужны для бота)
-api/
+# Исключаем папку бота
+/bot/

@@ -1,23 +1,25 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import (
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
 
-# Основное меню
+# Главное меню
 main_kb = ReplyKeyboardMarkup(
     keyboard=[
         [
-            KeyboardButton(text="🏋️ Тренировки"),
-            KeyboardButton(text="🥗 Питание"),
+            KeyboardButton(text="🏋️‍♂️ Тренировки"),
+            KeyboardButton(text="🍽 Питание"),
         ],
         [
-            KeyboardButton(text="🩸 Анализы"),
-            KeyboardButton(text="👤 Профиль"),
-        ],
-        [
+            KeyboardButton(text="🔬 Лабораторные данные"),
             KeyboardButton(text="📊 Статистика"),
-            KeyboardButton(text="❓ Помощь"),
+        ],
+        [
+            KeyboardButton(text="👤 Профиль"),
+            KeyboardButton(text="💡 Получить совет"),
         ],
     ],
     resize_keyboard=True,
-    input_field_placeholder="Выберите действие",
 )
 
 # Клавиатура для раздела тренировок

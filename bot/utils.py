@@ -1,11 +1,28 @@
 """Утилиты для бота FitMind Coach."""
 
+import asyncio
+import os
+import random
 import re
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Union
 
+import aiohttp
+import jinja2
+
+from aiogram.types import Message, User
+
+from bot.config import (
+    MISTRAL_API_KEY,
+    MISTRAL_MAX_RETRIES,
+    MISTRAL_MAX_WAIT,
+    MISTRAL_MIN_WAIT,
+    MISTRAL_MODEL,
+    MISTRAL_TIMEOUT,
+)
 from bot.constants import WORKOUT_TYPES
+from bot.logger import logger
 
 
 def get_utc_now() -> datetime:
@@ -206,3 +223,250 @@ def parse_workout_data(
     date = parse_date_from_text(text)
 
     return workout_type, duration, intensity, date
+
+
+def get_user_id(user_or_message: Any) -> Union[int, str]:
+    """
+    Безопасно получает ID пользователя из объекта User или Message.
+
+    Args:
+        user_or_message: Объект User или Message
+
+    Returns:
+        int или str: ID пользователя или строка "неизвестный"
+    """
+    if isinstance(user_or_message, Message):
+        user = user_or_message.from_user
+    elif isinstance(user_or_message, User):
+        user = user_or_message
+    else:
+        user = None
+
+    return user.id if user else "неизвестный"
+
+
+async def retry_async(
+    func: Callable,
+    max_retries: int = 3,
+    min_wait: float = 0.5,
+    max_wait: float = 4.0,
+    timeout: float = 30.0,
+) -> Any:
+    """
+    Выполняет асинхронную функцию с механизмом повторных попыток и таймаутом.
+
+    Args:
+        func: Асинхронная функция для выполнения
+        max_retries: Максимальное количество повторных попыток
+        min_wait: Минимальное время ожидания между попытками (в секундах)
+        max_wait: Максимальное время ожидания между попытками (в секундах)
+        timeout: Максимальное время выполнения функции (в секундах)
+
+    Returns:
+        Результат выполнения функции
+    """
+    retries = 0
+    last_exception: Optional[Exception] = None
+
+    while retries <= max_retries:
+        try:
+            # Выполняем функцию с таймаутом
+            return await asyncio.wait_for(func(), timeout=timeout)
+        except asyncio.TimeoutError:
+            last_exception = asyncio.TimeoutError(
+                f"Запрос превысил таймаут в {timeout} секунд"
+            )
+        except Exception as e:
+            last_exception = e
+
+        retries += 1
+        if retries > max_retries:
+            break
+
+        # Экспоненциальный откат с случайным компонентом
+        wait_time = min(max_wait, min_wait * (2 ** (retries - 1)))
+        # Добавляем случайность (jitter) для предотвращения "грозди запросов"
+        wait_time = wait_time * (0.8 + 0.4 * random.random())
+
+        logger.warning(
+            f"Попытка {retries} не удалась. "
+            f"Повторная попытка через {wait_time:.2f} секунд..."
+        )
+        await asyncio.sleep(wait_time)
+
+    # Если все попытки не удались, выбрасываем последнее исключение
+    raise last_exception
+
+
+# Настройка окружения Jinja2
+def get_template_env() -> jinja2.Environment:
+    """
+    Создает и возвращает окружение Jinja2 для загрузки шаблонов.
+
+    Returns:
+        jinja2.Environment: Окружение Jinja2
+    """
+    template_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "bot",
+        "templates",
+    )
+    logger.debug(f"Путь к директории шаблонов: {template_dir}")
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(template_dir),
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
+
+
+class MistralClient:
+    """Клиент для работы с Mistral API."""
+
+    _instance = None
+    _template_env = None
+
+    def __new__(cls):
+        """Реализация паттерна Singleton."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+
+            # Проверка API ключа
+            if not MISTRAL_API_KEY or len(MISTRAL_API_KEY) < 10:
+                logger.error("Невалидный API ключ Mistral")
+                raise ValueError("Невалидный API ключ Mistral")
+
+            cls._template_env = get_template_env()
+
+            # Логируем успешную инициализацию
+            logger.info(
+                f"MistralClient инициализирован с моделью {MISTRAL_MODEL}"
+            )
+
+        return cls._instance
+
+    async def get_advice(
+        self, query: str, user_data: Optional[dict[str, Any]] = None
+    ) -> str:
+        """
+        Получить персонализированный совет от Mistral AI
+        на основе данных пользователя.
+
+        Args:
+            query: Запрос пользователя
+            user_data: Словарь с данными пользователя
+                (профиль, тренировки, питание, анализы)
+                {
+                    'profile': dict[str, Any],
+                    'workouts': list[dict[str, Any]],
+                    'meals': list[dict[str, Any]],
+                    'lab_results': list[dict[str, Any]]
+                }
+
+        Returns:
+            str: Ответ от модели
+        """
+        if user_data is None:
+            user_data = {}
+
+        try:
+            logger.debug(f"Получен запрос: {query}")
+            logger.debug(f"Данные пользователя: {user_data}")
+
+            # Загружаем шаблон
+            template_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "bot",
+                "templates",
+            )
+            logger.debug(f"Путь к директории шаблонов: {template_dir}")
+
+            # Проверяем существование директории
+            if not os.path.exists(template_dir):
+                logger.error(
+                    f"Директория шаблонов не существует: {template_dir}"
+                )
+                return "Извините, произошла ошибка при обработке запроса."
+
+            # Проверяем существование файла шаблона
+            template_path = os.path.join(template_dir, "prompts", "advice.j2")
+            if not os.path.exists(template_path):
+                logger.error(f"Файл шаблона не существует: {template_path}")
+                return "Извините, произошла ошибка при обработке запроса."
+
+            # Создаем окружение Jinja2 напрямую
+            jinja_env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(template_dir),
+                trim_blocks=True,
+                lstrip_blocks=True,
+            )
+
+            template = jinja_env.get_template("prompts/advice.j2")
+
+            # Заполняем шаблон данными
+            context = {
+                "query": query,
+                "profile": user_data.get("profile"),
+                "workouts": user_data.get("workouts"),
+                "meals": user_data.get("meals"),
+                "lab_results": user_data.get("lab_results"),
+            }
+
+            prompt = template.render(**context)
+
+            logger.debug(
+                f"Сгенерирован промпт для Mistral API: {prompt[:100]}..."
+            )
+
+            # Используем прямой запрос к API вместо SDK
+            async def make_api_request():
+                url = "https://api.mistral.ai/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {MISTRAL_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+
+                data = {
+                    "model": MISTRAL_MODEL,
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        url, headers=headers, json=data
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            raise Exception(
+                                f"API вернул статус {response.status}: "
+                                f"{error_text}"
+                            )
+
+                        response_json = await response.json()
+                        return response_json["choices"][0]["message"][
+                            "content"
+                        ]
+
+            # Выполняем запрос с retry и таймаутом
+            response = await retry_async(
+                make_api_request,
+                max_retries=MISTRAL_MAX_RETRIES,
+                min_wait=MISTRAL_MIN_WAIT,
+                max_wait=MISTRAL_MAX_WAIT,
+                timeout=MISTRAL_TIMEOUT,
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Ошибка при запросе к Mistral API: {e}")
+            # Более подробное логирование для диагностики
+            logger.error(
+                f"Детали запроса: model={MISTRAL_MODEL}, "
+                f"API_KEY={MISTRAL_API_KEY[:5]}***"
+            )
+            return (
+                "Извините, в данный момент я не могу предоставить совет. "
+                "Пожалуйста, попробуйте позже."
+            )
+
+
+# Создаем глобальный экземпляр клиента Mistral
+mistral_client = MistralClient()
