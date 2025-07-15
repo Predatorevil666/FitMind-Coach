@@ -64,8 +64,20 @@ async def process_username(message: Message, state: FSMContext):
         )
         return
 
-    # Мы не можем надежно проверить существование пользователя через API,
-    # поэтому просто переходим к запросу пароля
+    # Проверяем существование пользователя через API
+    telegram_id = message.from_user.id if message.from_user else 0
+    user_api = get_user_api_client(telegram_id)
+    user_exists = await user_api.client.check_user_exists(username_or_email)
+
+    if not user_exists:
+        await message.answer(
+            f"❌ Пользователь с {'email' if is_email else 'именем'} "
+            f"'{username_or_email}' не найден.\n\n"
+            "Пожалуйста, проверьте правильность введенных данных или "
+            "зарегистрируйтесь с помощью команды /register",
+        )
+        return
+
     await state.update_data(username=username_or_email)
     await state.set_state(AuthForm.password)
     await message.answer(
@@ -81,6 +93,7 @@ async def process_password(message: Message, state: FSMContext):
 
     # Получаем данные из состояния
     data = await state.get_data()
+    username_or_email = data["username"]
 
     # Получаем Telegram ID пользователя
     telegram_id = message.from_user.id if message.from_user else None
@@ -88,33 +101,41 @@ async def process_password(message: Message, state: FSMContext):
     if telegram_id:
         user_api = get_user_api_client(telegram_id)
 
-        # Пытаемся привязать Telegram ID к аккаунту
-        link_result = await user_api.client.link_telegram(
-            data["username"], data["password"], telegram_id
-        )
+        # Проверяем, является ли введенное значение email
+        is_email = "@" in username_or_email and "." in username_or_email
 
-        if link_result:
-            # Привязка успешна, теперь авторизуемся по Telegram ID
-            auth_result = await user_api.telegram_auth()
-            if auth_result:
-                await message.answer(
-                    "✅ Telegram аккаунт успешно привязан "
-                    "и вы вошли в систему!\n"
-                    "Теперь вы можете использовать бота без повторной "
-                    "авторизации.",
-                    reply_markup=main_kb,
-                )
-            else:
-                await message.answer(
-                    "✅ Telegram аккаунт привязан, но возникла ошибка "
-                    "при авторизации.\n"
-                    "Попробуйте команду /start снова.",
-                    reply_markup=main_kb,
-                )
-        else:
-            # Привязка не удалась, пытаемся обычную авторизацию
-            result = await user_api.login(data["username"], data["password"])
-            if result:
+        if is_email:
+            # Если это email, пытаемся привязать Telegram ID к аккаунту
+            link_result = await user_api.client.link_telegram(
+                username_or_email, data["password"], telegram_id
+            )
+
+            if link_result:
+                # Привязка успешна, теперь авторизуемся по Telegram ID
+                auth_result = await user_api.telegram_auth()
+                if auth_result:
+                    await message.answer(
+                        "✅ Telegram аккаунт успешно привязан "
+                        "и вы вошли в систему!\n"
+                        "Теперь вы можете использовать бота без повторной "
+                        "авторизации.",
+                        reply_markup=main_kb,
+                    )
+                else:
+                    await message.answer(
+                        "✅ Telegram аккаунт привязан, но возникла ошибка "
+                        "при авторизации.\n"
+                        "Попробуйте команду /start снова.",
+                        reply_markup=main_kb,
+                    )
+                # Очищаем состояние и выходим
+                await state.clear()
+                return
+
+        # Если это username или привязка не удалась - обычная авторизация
+        result = await user_api.login(username_or_email, data["password"])
+        if result:
+            if is_email:
                 await message.answer(
                     "✅ Вы успешно вошли в систему!\n"
                     "⚠️ Telegram аккаунт не был привязан. "
@@ -122,14 +143,31 @@ async def process_password(message: Message, state: FSMContext):
                     reply_markup=main_kb,
                 )
             else:
-                await message.answer(
-                    "❌ Не удалось войти в систему. \n\n"
-                    "Возможные причины:\n"
-                    "1. Неверный пароль\n"
-                    "2. Пользователь с таким email/именем не существует\n\n"
-                    "Пожалуйста, проверьте данные и попробуйте снова или "
-                    "зарегистрируйтесь с помощью команды /register",
-                )
+                # Для username входа - проверяем, привязан ли уже аккаунт
+                # пытаясь авторизоваться через Telegram ID
+                telegram_auth_result = await user_api.telegram_auth()
+                if telegram_auth_result:
+                    await message.answer(
+                        "✅ Вы успешно вошли в систему!\n"
+                        "🔗 Ваш Telegram аккаунт уже привязан к профилю.",
+                        reply_markup=main_kb,
+                    )
+                else:
+                    await message.answer(
+                        "✅ Вы успешно вошли в систему!\n"
+                        "💡 Для автоматического входа в будущем можете "
+                        "привязать Telegram аккаунт через профиль.",
+                        reply_markup=main_kb,
+                    )
+        else:
+            await message.answer(
+                "❌ Не удалось войти в систему. \n\n"
+                "Возможные причины:\n"
+                "1. Неверный пароль\n"
+                "2. Пользователь с таким email/именем не существует\n\n"
+                "Пожалуйста, проверьте данные и попробуйте снова или "
+                "зарегистрируйтесь с помощью команды /register",
+            )
     else:
         await message.answer(
             "❌ Ошибка получения данных пользователя.",

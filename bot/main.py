@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from bot.api_client import _api_client
+from bot.api_client import _api_client, reinit_api_client
 from bot.config import TG_TOKEN
 from bot.logger import logger
 from bot.routers import setup_routers
@@ -13,6 +13,9 @@ from bot.routers import setup_routers
 async def main():
     # Выводим информацию о запуске
     logger.info("Запуск бота")
+
+    # Переинициализируем API клиент с актуальными настройками
+    reinit_api_client()
 
     # Создаем объекты бота и диспетчера с хранилищем состояний
     try:

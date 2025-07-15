@@ -564,13 +564,34 @@ class APIClient:
 _api_client = APIClient()
 
 
+def reinit_api_client():
+    """Пересоздает глобальный API клиент с актуальными настройками."""
+    global _api_client
+    import os
+
+    from dotenv import load_dotenv
+
+    # Перезагружаем переменные окружения
+    load_dotenv()
+
+    # Получаем актуальное значение API_URL
+    api_url = os.getenv("API_URL", "http://localhost:8003/api/v1")
+
+    logger.info(f"Переинициализация API клиента с URL: {api_url}")
+    _api_client = APIClient(api_url)
+
+
 # Создаем класс-обертку для совместимости
 class UserAPIClient:
     """Обертка для API клиента с привязкой к пользователю."""
 
     def __init__(self, telegram_id: int):
         self.telegram_id = telegram_id
-        self.client = _api_client
+
+    @property
+    def client(self):
+        """Получить актуальный глобальный API клиент."""
+        return _api_client
 
     async def login(self, email: str, password: str) -> bool:
         return await self.client.login(email, password, self.telegram_id)

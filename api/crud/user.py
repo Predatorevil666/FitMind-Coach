@@ -110,9 +110,15 @@ class CRUDUser(CRUDBase[User, UserIn, UserIn]):
         self, db: AsyncSession, *, email: str, password: str
     ) -> Optional[User]:
         """
-        Аутентификация пользователя.
+        Аутентификация пользователя по email или username.
         """
+        # Сначала пытаемся найти по email
         user = await self.get_by_email(db, email=email)
+
+        # Если не найден и это не похоже на email, ищем по username
+        if not user and "@" not in email:
+            user = await self.get_by_username(db, username=email)
+
         if not user:
             return None
         if not verify_password(password, user.hashed_password):

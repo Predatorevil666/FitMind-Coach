@@ -9,6 +9,27 @@ from api.schemas.user import ProfileIn, ProfileOut, UserIn, UserOut
 router = APIRouter(tags=["users"])
 
 
+@router.get("/check")
+async def check_user_exists(
+    db: SessionDep, email: str = None, username: str = None
+) -> dict[str, bool]:
+    """
+    Проверка существования пользователя по email или username.
+    Публичный эндпоинт, не требует авторизации.
+    """
+    if email:
+        db_user = await user.get_by_email(db, email=email)
+        return {"exists": db_user is not None}
+    elif username:
+        db_user = await user.get_by_username(db, username=username)
+        return {"exists": db_user is not None}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Необходимо указать email или username",
+        )
+
+
 @router.post("", response_model=UserOut)
 async def create_user(db: SessionDep, user_in: UserIn) -> UserOut:
     """
