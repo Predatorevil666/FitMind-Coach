@@ -58,7 +58,7 @@ async def cmd_labs(message: Message):
         for keyword in ["гемоглобин", "холестерин", "глюкоза", "лейкоциты"]
     )
 )
-async def parse_lab_text(message: Message):
+async def parse_lab_text(message: Message, state: FSMContext):
     """Парсинг данных анализа из текстового сообщения."""
     text = message.text.lower()
 
@@ -71,7 +71,8 @@ async def parse_lab_text(message: Message):
 
     if not lab_name:
         await message.answer(
-            "Не удалось распознать показатель анализа. Пожалуйста, используйте формат:\n"
+            "Не удалось распознать показатель анализа.\n"
+            "Пожалуйста, используйте формат:\n"
             '"[Показатель] [Значение] [Ед.изм]"\n\n'
             'Например: "гемоглобин 148 г/л"',
             reply_markup=lab_kb,
@@ -79,11 +80,14 @@ async def parse_lab_text(message: Message):
         return
 
     # Ищем значение (число после названия показателя)
-    value_match = re.search(rf"{lab_name}[^\d]*(\d+(?:[,.]\d+)?)", text)
+    # Ищем число, которое может быть окружено пробелами
+    # и может содержать запятую или точку
+    value_match = re.search(rf"{lab_name}\s*(\d+(?:[,.]\d+)?)", text)
 
     if not value_match:
         await message.answer(
-            "Не удалось распознать значение показателя. Пожалуйста, используйте формат:\n"
+            "Не удалось распознать значение показателя.\n"
+            "Пожалуйста, используйте формат:\n"
             '"[Показатель] [Значение] [Ед.изм]"\n\n'
             'Например: "гемоглобин 148 г/л"',
             reply_markup=lab_kb,
@@ -134,6 +138,9 @@ async def parse_lab_text(message: Message):
     result = await user_api_client.create_lab_result(lab_data)
 
     if result:
+        # Очищаем состояние FSM после успешного добавления
+        await state.clear()
+
         await message.answer(
             MESSAGES["lab_added"].format(
                 name=lab_name.capitalize(),
@@ -158,7 +165,8 @@ async def labs_menu(message: Message):
     """Обработчик кнопки 'Анализы'."""
     await message.answer(
         "📋 Раздел анализов\n\n"
-        "Здесь вы можете добавлять результаты анализов и просматривать историю.",
+        "Здесь вы можете добавлять результаты "
+        "анализов и просматривать историю.",
         reply_markup=lab_kb,
     )
 

@@ -317,7 +317,7 @@ async def process_password_confirm(message: Message, state: FSMContext):
 
         # Отправляем запрос к API для регистрации
         result = await user_api.client.register(
-            data["email"], data["username"], data["password"]
+            data["email"], data["username"], data["password"], telegram_id
         )
 
         if result:

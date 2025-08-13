@@ -10,8 +10,6 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Union
 
-import sqlalchemy as sa
-
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -34,91 +32,13 @@ def upgrade() -> None:
 
     Заменяем использование datetime.utcnow() на get_utc_now().
     """
-    # Создаем недостающие таблицы
-
-    # Создаем таблицу profiles
-    op.create_table(
-        "profiles",
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("full_name", sa.String(100), nullable=True),
-        sa.Column("age", sa.Integer(), nullable=True),
-        sa.Column("weight", sa.Float(), nullable=True),
-        sa.Column("height", sa.Float(), nullable=True),
-        sa.Column("goal", sa.String(50), nullable=True),
-        sa.Column("target_weight", sa.Float(), nullable=True),
-        sa.Column("workouts_per_week", sa.Float(), nullable=True),
-        sa.Column("avg_calories", sa.Integer(), nullable=True),
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
-    # Создаем таблицу workouts
-    op.create_table(
-        "workouts",
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("date", sa.DateTime(), nullable=False),
-        sa.Column("type", sa.String(50), nullable=False),
-        sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("duration_minutes", sa.Integer(), nullable=False),
-        sa.Column("calories_burned", sa.Integer(), nullable=True),
-        sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("exercises", sa.JSON(), nullable=True),
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
-    # Создаем таблицу meals
-    op.create_table(
-        "meals",
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("date", sa.DateTime(), nullable=False),
-        sa.Column("type", sa.String(50), nullable=False),
-        sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("calories", sa.Integer(), nullable=True),
-        sa.Column("protein_g", sa.Float(), nullable=True),
-        sa.Column("carbs_g", sa.Float(), nullable=True),
-        sa.Column("fat_g", sa.Float(), nullable=True),
-        sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("foods", sa.JSON(), nullable=True),
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
-    # Создаем таблицу lab_results
-    op.create_table(
-        "lab_results",
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("date", sa.DateTime(), nullable=False),
-        sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("lab_name", sa.String(100), nullable=True),
-        sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("results", sa.JSON(), nullable=False),
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
-    )
-
     # Обновляем все записи в таблицах
     # Для SQLite это может быть не так критично, но для PostgreSQL важно
 
-    # Обновляем пользователей
-    op.execute("""
-        UPDATE users
-        SET created_at = REPLACE(created_at, 'Z', '+00:00'),
-            updated_at = REPLACE(updated_at, 'Z', '+00:00')
-        WHERE created_at LIKE '%Z' OR updated_at LIKE '%Z'
-    """)
+    # Обновляем пользователей (PostgreSQL не поддерживает LIKE с timestamp)
+    # В новой базе данных это не нужно, так как все записи уже в
+    # правильном формате
+    pass
 
 
 def downgrade() -> None:

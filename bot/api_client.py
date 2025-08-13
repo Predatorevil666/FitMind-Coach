@@ -157,7 +157,9 @@ class APIClient:
             logger.warning(f"Попытка выхода без авторизации для {telegram_id}")
             return False
 
-    async def register(self, email: str, username: str, password: str) -> bool:
+    async def register(
+        self, email: str, username: str, password: str, telegram_id: int = None
+    ) -> bool:
         """
         Регистрация пользователя.
 
@@ -165,6 +167,7 @@ class APIClient:
             email: Email пользователя.
             username: Имя пользователя.
             password: Пароль пользователя.
+            telegram_id: Telegram ID пользователя (опционально).
 
         Returns:
             bool: True, если регистрация успешна, иначе False.
@@ -178,6 +181,10 @@ class APIClient:
                 "is_active": True,
                 "is_superuser": False,
             }
+
+            # Добавляем telegram_id если он передан
+            if telegram_id is not None:
+                user_data["telegram_id"] = telegram_id
 
             async with self.session.post(
                 f"{self.base_url}/users", json=user_data
@@ -218,11 +225,17 @@ class APIClient:
                     token = data.get("access_token")
                     if token:
                         self.set_token(telegram_id, token)
-                    logger.info(
-                        f"Успешная авторизация пользователя по "
-                        f"Telegram ID {telegram_id}"
-                    )
-                    return True
+                        logger.info(
+                            f"Успешная авторизация пользователя по "
+                            f"Telegram ID {telegram_id}"
+                        )
+                        return True
+                    else:
+                        logger.error(
+                            f"Ответ 200 без access_token при авторизации по "
+                            f"Telegram ID {telegram_id}"
+                        )
+                        return False
                 else:
                     error_text = await response.text()
                     logger.error(

@@ -54,6 +54,18 @@ async def cmd_food(message: Message):
 @router.message(
     lambda message: not message.text.startswith("/")
     and re.search(r"\d+\s*(?:г|гр|g)\b", message.text.lower())
+    and not any(
+        medical_term in message.text.lower()
+        for medical_term in [
+            "гемоглобин",
+            "холестерин",
+            "глюкоза",
+            "лейкоциты",
+            "эритроциты",
+            "ферритин",
+            "кортизол",
+        ]
+    )
 )
 async def parse_food_text(message: Message):
     """Парсинг данных о питании из текстового сообщения."""
@@ -64,7 +76,8 @@ async def parse_food_text(message: Message):
 
     if not weight_match:
         await message.answer(
-            'Не удалось распознать вес продукта. Пожалуйста, укажите вес в граммах, например: "Овсянка 100г"',
+            "Не удалось распознать вес продукта. Пожалуйста, "
+            'укажите вес в граммах, например: "Овсянка 100г"',
             reply_markup=meal_kb,
         )
         return
@@ -436,7 +449,8 @@ async def list_meals(message: Message):
         meals_text += (
             f"• {meal_date}: {meal['name']}\n"
             f"  Тип: {meal_type}, {meal['calories']} ккал\n"
-            f"  БЖУ: {meal.get('protein_g', 0)}г / {meal.get('fat_g', 0)}г / {meal.get('carbs_g', 0)}г\n\n"
+            f"  БЖУ: {meal.get('protein_g', 0)}г / "
+            f"{meal.get('fat_g', 0)}г / {meal.get('carbs_g', 0)}г\n\n"
         )
 
     await message.answer(meals_text, reply_markup=meal_kb)

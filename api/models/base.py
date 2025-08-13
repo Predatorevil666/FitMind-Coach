@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import Integer, MetaData
+from sqlalchemy import DateTime, Integer, MetaData
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -31,7 +31,9 @@ class Base(AsyncAttrs, DeclarativeBase):
     __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(default=get_utc_now)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=get_utc_now
+    )
     updated_at: Mapped[Optional[datetime]] = mapped_column(
-        default=None, onupdate=get_utc_now
+        DateTime(timezone=True), default=get_utc_now, onupdate=get_utc_now
     )

@@ -1,3 +1,5 @@
+import re
+
 from typing import Any
 
 from aiogram import Router
@@ -9,15 +11,74 @@ from aiogram.types import Message, ReplyKeyboardRemove
 from bot.api_client import UserAPIClient
 from bot.keyboards.reply import main_kb
 from bot.logger import logger
-from bot.utils import get_user_id, mistral_client
+from bot.utils import mistral_client
 
-router = Router()
+
+def get_user_id(message: Message) -> int:
+    """Получить ID пользователя из сообщения."""
+    return message.from_user.id if message.from_user else 0
+
+
+def split_long_message(text: str, max_length: int = 4000) -> list[str]:
+    """
+    Разбивает длинное сообщение на части, не превышающие max_length.
+
+    Args:
+        text: Текст для разбиения
+        max_length: Максимальная длина части (по умолчанию 4000)
+
+    Returns:
+        Список частей сообщения
+    """
+    if len(text) <= max_length:
+        return [text]
+
+    parts = []
+    current_part = ""
+
+    # Разбиваем по предложениям, чтобы не обрывать текст посередине
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+
+    for sentence in sentences:
+        # Если добавление предложения превысит лимит
+        sentence_length = len(current_part) + len(sentence) + 1
+        if sentence_length > max_length:
+            if current_part:
+                parts.append(current_part.strip())
+                current_part = sentence
+            else:
+                # Если одно предложение слишком длинное, разбиваем по словам
+                words = sentence.split()
+                for word in words:
+                    word_length = len(current_part) + len(word) + 1
+                    if word_length > max_length:
+                        if current_part:
+                            parts.append(current_part.strip())
+                            current_part = word
+                        else:
+                            # Если одно слово слишком длинное,
+                            # разбиваем по символам
+                            parts.append(word[:max_length])
+                            current_part = word[max_length:]
+                    else:
+                        current_part += " " + word if current_part else word
+        else:
+            current_part += " " + sentence if current_part else sentence
+
+    # Добавляем последнюю часть
+    if current_part.strip():
+        parts.append(current_part.strip())
+
+    return parts
 
 
 class AdviceForm(StatesGroup):
-    """Состояния для получения совета."""
+    """Состояния для формы запроса совета."""
 
     waiting_for_query = State()
+
+
+router = Router()
 
 
 @router.message(Command("advice"))
@@ -93,12 +154,26 @@ async def process_advice_query(message: Message, state: FSMContext):
         # Очищаем состояние
         await state.clear()
 
-        # Отправляем совет
-        await message.answer(
-            f"💡 <b>Персонализированный совет:</b>\n\n{advice}",
-            parse_mode="HTML",
-            reply_markup=main_kb,
-        )
+        # Разбиваем длинное сообщение на части
+        message_parts = split_long_message(advice)
+
+        # Отправляем первую часть с заголовком
+        if message_parts:
+            first_part = message_parts[0]
+            await message.answer(
+                f"💡 <b>Персонализированный совет:</b>\n\n{first_part}",
+                parse_mode="HTML",
+                reply_markup=main_kb if len(message_parts) == 1 else None,
+            )
+
+            # Отправляем остальные части
+            for i, part in enumerate(message_parts[1:], 2):
+                is_last = i == len(message_parts)
+                await message.answer(
+                    part,
+                    parse_mode="HTML",
+                    reply_markup=main_kb if is_last else None,
+                )
 
         # Сокращаем запрос для логирования
         query_preview = (

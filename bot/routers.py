@@ -33,10 +33,7 @@ def setup_routers(dp: Dispatcher) -> None:
     dp.include_router(start_router)  # Затем стартовые команды
     dp.include_router(advice_router)  # Роутер для советов
     dp.include_router(workout_router)  # Тренировки
-    dp.include_router(meal_router)  # Питание
-    dp.include_router(lab_router)  # Лабораторные данные
+    dp.include_router(lab_router)  # Лабораторные данные (высокий приоритет)
+    dp.include_router(meal_router)  # Питание (низкий приоритет)
     dp.include_router(stats_router)  # Статистика
-    dp.include_router(common_router)  # Общие обработчики должны
-
-
-# быть последними
+    dp.include_router(common_router)  # Общие обработчики должны последние

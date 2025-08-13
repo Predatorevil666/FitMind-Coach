@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,7 +31,9 @@ class Meal(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
-    date: Mapped[datetime] = mapped_column(default=get_utc_now)
+    date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=get_utc_now
+    )
     type: Mapped[MealType] = mapped_column(default=MealType.OTHER)
     name: Mapped[str] = mapped_column(String(100))
     calories: Mapped[Optional[int]] = mapped_column()

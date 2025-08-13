@@ -56,7 +56,7 @@ async def cmd_start(message: Message, **kwargs) -> None:
 
     if not profile:
         # Проверяем, авторизован ли пользователь (есть ли токен)
-        if telegram_id and _api_client.get_token(telegram_id):
+        if telegram_id and api_client.client.get_token(telegram_id):
             # Пользователь авторизован, но нет профиля - предлагаем
             # создать профиль
             await message.answer(
@@ -421,12 +421,12 @@ async def cmd_status(message: Message) -> None:
         telegram_auth_result = await user_api.telegram_auth()
         if telegram_auth_result:
             logger.info(
-                f"Пользователь {telegram_id} автоматически"
-                f"авторизован через Telegram"
+                f"Пользователь {telegram_id} "
+                f"автоматически авторизован через Telegram"
             )
 
         # Проверяем токен
-        has_token = bool(_api_client.get_token(telegram_id))
+        has_token = bool(user_api.client.get_token(telegram_id))
 
         # Проверяем профиль
         profile = await user_api.get_profile()
