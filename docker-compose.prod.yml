@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: fitmind_db_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fitmind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fitmind-network
+
+  migrate:
+    image: fitmindlab.hopto.org:5050/root/fitmind-coach/api:${CI_COMMIT_SHA}
+    container_name: fitmind_migrate_prod
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '🔄 Ожидание готовности базы данных...' &&
+        sleep 5 &&
+        echo '📊 Применение миграций...' &&
+        alembic upgrade head &&
+        echo '✅ Миграции применены!'
+      "
+    networks:
+      - fitmind-network
+    restart: "no"
+
+  api:
+    image: fitmindlab.hopto.org:5050/root/fitmind-coach/api:${CI_COMMIT_SHA}
+    container_name: fitmind_api_prod
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fitmind-network
+
+  bot:
+    image: fitmindlab.hopto.org:5050/root/fitmind-coach/bot:${CI_COMMIT_SHA}
+    container_name: fitmind_bot_prod
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_URL=http://api:8000
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - fitmind-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: fitmind_nginx_prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - fitmind-network
+
+volumes:
+  postgres_data_prod:
+
+networks:
+  fitmind-network:
+    driver: bridge

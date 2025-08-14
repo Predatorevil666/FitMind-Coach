@@ -1,0 +1,55 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  CI_REGISTRY: fitmindlab.hopto.org:5050
+  CI_REGISTRY_IMAGE: $CI_REGISTRY/root/fitmind-coach
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - echo "🔨 Building API image..."
+    - docker build -t $CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHA -f Dockerfile.api .
+    - docker build -t $CI_REGISTRY_IMAGE/api:latest -f Dockerfile.api .
+    - echo "🔨 Building Bot image..."
+    - docker build -t $CI_REGISTRY_IMAGE/bot:$CI_COMMIT_SHA -f Dockerfile.bot .
+    - docker build -t $CI_REGISTRY_IMAGE/bot:latest -f Dockerfile.bot .
+    - echo "📤 Pushing images to registry..."
+    - docker push $CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE/api:latest
+    - docker push $CI_REGISTRY_IMAGE/bot:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE/bot:latest
+    - echo "✅ All images built and pushed successfully!"
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "🚀 Deploying to VPS..."
+    - echo "📋 Updating docker-compose.prod.yml with new image tags..."
+    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && sed -i 's|CI_COMMIT_SHA|$CI_COMMIT_SHA|g' docker-compose.prod.yml"
+    - echo "📤 Pulling new images and restarting services..."
+    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
+    - echo "📊 Checking service status..."
+    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && docker-compose -f docker-compose.prod.yml ps"
+    - echo "✅ Deployment completed successfully!"
+  only:
+    - main
