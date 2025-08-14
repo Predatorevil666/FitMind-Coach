@@ -1,0 +1,128 @@
+
+services:
+  db:
+    image: postgres:latest
+    container_name: fitmind_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs:/var/log/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fitmind}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: fitmind_api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./api:/app/api
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./Makefile:/app/Makefile
+      - ./.env:/app/.env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8003/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+  migrate:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: fitmind_migrate
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    env_file:
+      - .env
+    volumes:
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '🔄 Ожидание готовности базы данных...' &&
+        sleep 5 &&
+        echo '📊 Применение миграций...' &&
+        alembic upgrade head &&
+        echo '✅ Миграции применены!'
+      "
+    networks:
+      - app-network
+
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: fitmind_nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+  #     - ./nginx/ssl:/etc/nginx/ssl
+  #     - ./logs:/var/log/nginx
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    container_name: fitmind_bot
+    restart: unless-stopped
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_URL=${API_URL}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./bot:/app/bot
+      - ./.env:/app/.env
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,92 @@
+[tool.poetry]
+name = "fitmind-coach"
+version = "0.1.0"
+description = "Приложение для фитнес-коучинга и планирования тренировок"
+authors = ["Alexander Batogov <predatorevil666@mail.ru>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.12,<4.0"
+aiogram = "^3.20.0"
+python-dotenv = "^1.1.1"
+fastapi = "^0.110.0"
+uvicorn = "^0.29.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.27"}
+alembic = "^1.13.1"
+pydantic = {extras = ["email"], version = "^2.6.1"}
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+asyncpg = "^0.29.0"
+aiosqlite = "^0.19.0"
+psycopg2-binary = "^2.9.10"
+python-multipart = "^0.0.9"
+pydantic-settings = "^2.10.1"
+aiohttp = "^3.9.3"
+mistralai = "^1.9.1"
+jinja2 = "^3.1.6"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.9.0"
+pre-commit = "^4.2.0"
+ruff = "^0.12.0"
+types-aiofiles = "^23.2.0.20240403"
+types-requests = "^2.32.0.20241016"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 79
+
+# Все настройки линтинга переносим в подсекцию `lint`
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "W",   # pycodestyle warnings
+]
+ignore = ["E501"]
+
+# Настройки сортировки импортов (isort)
+[tool.ruff.lint.isort]
+known-first-party = ["utils"]
+lines-between-types = 1
+combine-as-imports = true
+split-on-trailing-comma = true
+order-by-type = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+warn_no_return = false
+warn_unreachable = false
+strict_equality = false
+# Игнорируем отсутствующие импорты для внешних библиотек
+ignore_missing_imports = true
+# Игнорируем ошибки с None
+strict_optional = false
+
+[[tool.mypy.overrides]]
+module = [
+    "aiogram.*",
+    "aiohttp.*",
+    "jinja2.*",
+    "dotenv.*",
+    "mistralai.*",
+    "passlib.*",
+    "jose.*"
+]
+ignore_missing_imports = true
+ignore_errors = true
