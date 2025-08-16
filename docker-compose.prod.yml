@@ -20,7 +20,7 @@ services:
       - fitmind-network
 
   migrate:
-    image: fitmindlab.hopto.org:5050/root/fitmind-coach/api:${CI_COMMIT_SHA}
+    image: fitmindlab.hopto.org:5050/root/fitmind-coach/migrate:${CI_COMMIT_SHA}
     container_name: fitmind_migrate_prod
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}

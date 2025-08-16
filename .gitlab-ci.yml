@@ -22,11 +22,16 @@ build:
     - echo "🔨 Building Bot image..."
     - docker build -t $CI_REGISTRY_IMAGE/bot:$CI_COMMIT_SHA -f Dockerfile.bot .
     - docker build -t $CI_REGISTRY_IMAGE/bot:latest -f Dockerfile.bot .
+    - echo "🔨 Building Migrate image..."
+    - docker build -t $CI_REGISTRY_IMAGE/migrate:$CI_COMMIT_SHA -f Dockerfile.api .
+    - docker build -t $CI_REGISTRY_IMAGE/migrate:latest -f Dockerfile.api .
     - echo "📤 Pushing images to registry..."
     - docker push $CI_REGISTRY_IMAGE/api:$CI_COMMIT_SHA
     - docker push $CI_REGISTRY_IMAGE/api:latest
     - docker push $CI_REGISTRY_IMAGE/bot:$CI_COMMIT_SHA
     - docker push $CI_REGISTRY_IMAGE/bot:latest
+    - docker push $CI_REGISTRY_IMAGE/migrate:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE/migrate:latest
     - echo "✅ All images built and pushed successfully!"
   only:
     - main
