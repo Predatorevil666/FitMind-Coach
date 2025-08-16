@@ -47,8 +47,6 @@ deploy:
     - chmod 644 ~/.ssh/known_hosts
   script:
     - echo "🚀 Deploying to VPS..."
-    - echo "📋 Updating files on VPS..."
-    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && git fetch https://root:$CI_REGISTRY_PASSWORD@fitmindlab.hopto.org/root/fitmind-coach.git && git reset --hard origin/main"
     - echo "📋 Updating docker-compose.prod.yml with new image tags..."
     - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && echo '$CI_REGISTRY_PASSWORD' | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY && export COMMIT_SHA='$CI_COMMIT_SHA' && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
     - echo "📤 Pulling new images and restarting services..."
