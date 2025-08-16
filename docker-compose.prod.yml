@@ -69,7 +69,7 @@ services:
     container_name: fitmind_bot_prod
     restart: unless-stopped
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}
+      - TG_TOKEN=${BOT_TOKEN}
       - API_URL=http://api:8000
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
     depends_on:
