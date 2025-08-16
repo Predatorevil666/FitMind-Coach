@@ -26,9 +26,11 @@ services:
   api:
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: Dockerfile.api
     container_name: fitmind_api
     restart: unless-stopped
+    ports:
+      - "8003:8003"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY}
@@ -58,7 +60,7 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: api/Dockerfile
+      dockerfile: Dockerfile.api
     container_name: fitmind_migrate
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -101,7 +103,7 @@ services:
   bot:
     build:
       context: .
-      dockerfile: bot/Dockerfile
+      dockerfile: Dockerfile.bot
     container_name: fitmind_bot
     restart: unless-stopped
     environment:

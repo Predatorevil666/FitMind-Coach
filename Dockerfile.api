@@ -39,7 +39,7 @@ ENV PYTHONPATH="/app:$PYTHONPATH"
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
 # Экспонирование порта
-EXPOSE 8000
+EXPOSE 8003
 
 # Запуск API
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8003"]

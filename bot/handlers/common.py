@@ -2,6 +2,12 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
+from bot.constants import (
+    BACK_TO_MAIN_MENU_MSG,
+    LAB_SECTION_MSG,
+    NUTRITION_SECTION_MSG,
+    WORKOUT_SECTION_MSG,
+)
 from bot.handlers.advice import cmd_advice
 from bot.keyboards.reply import (
     lab_kb,
@@ -31,7 +37,7 @@ async def back_to_main_menu(message: Message):
     user_id = get_user_id(message)
     logger.info(f"Пользователь {user_id} вернулся в главное меню")
     await message.answer(
-        "Вы вернулись в главное меню.",
+        BACK_TO_MAIN_MENU_MSG,
         reply_markup=main_kb,
     )
 
@@ -43,7 +49,7 @@ async def workout_button(message: Message):
     user_id = get_user_id(message)
     logger.info(f"Пользователь {user_id} перешел в раздел тренировок")
     await message.answer(
-        "Раздел тренировок. Выберите действие:",
+        WORKOUT_SECTION_MSG,
         reply_markup=workout_kb,
     )
 
@@ -55,7 +61,7 @@ async def meal_button(message: Message):
     user_id = get_user_id(message)
     logger.info(f"Пользователь {user_id} перешел в раздел питания")
     await message.answer(
-        "Раздел питания. Выберите действие:",
+        NUTRITION_SECTION_MSG,
         reply_markup=meal_kb,
     )
 
@@ -67,7 +73,7 @@ async def lab_button(message: Message):
     user_id = get_user_id(message)
     logger.info(f"Пользователь {user_id} перешел в раздел лабораторных данных")
     await message.answer(
-        "Раздел лабораторных данных. Выберите действие:",
+        LAB_SECTION_MSG,
         reply_markup=lab_kb,
     )
 

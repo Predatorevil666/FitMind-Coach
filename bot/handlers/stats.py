@@ -67,9 +67,11 @@ async def stats_menu(message: Message) -> None:
             workout_date = datetime.fromisoformat(
                 workout["date"].replace("Z", "+00:00")
             ).strftime("%d.%m")
+
+            # Компактный формат: дата: название - время
             stats_text += (
-                f"• {workout_date}: {workout['name']} "
-                f"({workout['duration_minutes']} мин)\n"
+                f"• {workout_date}: {workout['name']} - "
+                f"{workout['duration_minutes']} мин\n"
             )
     else:
         stats_text += "Нет данных о тренировках\n"
@@ -174,8 +176,22 @@ async def cmd_progress(message: Message) -> None:
         )
         avg_intensity = total_intensity / total_workouts
         progress_text += (
-            f"Средняя интенсивность: {round(avg_intensity, 1)}/10\n\n"
+            f"Средняя интенсивность: {round(avg_intensity, 1)}/10\n"
         )
+
+        # Добавляем последние 3 тренировки с деталями
+        progress_text += "\n*Последние тренировки:*\n"
+        for workout in workouts[:3]:
+            workout_date = datetime.fromisoformat(
+                workout["date"].replace("Z", "+00:00")
+            ).strftime("%d.%m")
+
+            # Компактный формат: дата: название - время
+            progress_text += (
+                f"• {workout_date}: {workout['name']} - "
+                f"{workout['duration_minutes']} мин\n"
+            )
+        progress_text += "\n"
     else:
         progress_text += "Нет данных о тренировках\n\n"
 
