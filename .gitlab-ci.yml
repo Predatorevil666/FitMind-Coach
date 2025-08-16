@@ -48,7 +48,7 @@ deploy:
   script:
     - echo "🚀 Deploying to VPS..."
     - echo "📋 Updating docker-compose.prod.yml with new image tags..."
-    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "export COMMIT_SHA='$CI_COMMIT_SHA' && cd /home/batogov/fitmindcoach && sed -i 's|CI_COMMIT_SHA|$COMMIT_SHA|g' docker-compose.prod.yml"
+    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "export COMMIT_SHA='$CI_COMMIT_SHA' && cd /home/batogov/fitmindcoach && sed -i 's|CI_COMMIT_SHA|$COMMIT_SHA|g' docker-compose.prod.yml && sed -i 's|\${CI_COMMIT_SHA}|$COMMIT_SHA|g' docker-compose.prod.yml"
     - echo "📤 Pulling new images and restarting services..."
     - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
     - echo "📊 Checking service status..."
