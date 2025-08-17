@@ -47,12 +47,18 @@ deploy:
     - chmod 644 ~/.ssh/known_hosts
   script:
     - echo "🚀 Deploying to VPS..."
-    - echo "📋 Updating docker-compose.prod.yml with new image tags..."
-    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && echo '$CI_REGISTRY_PASSWORD' | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY && export COMMIT_SHA='$CI_COMMIT_SHA' && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
-    - echo "📤 Pulling new images and restarting services..."
-    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d"
+    - echo "🔑 Logging into GitLab Container Registry on VPS..."
+    - ssh -o StrictHostKeyChecking=no -p $VPS_PORT $VPS_USER@$VPS_HOST "cd $VPS_PATH && echo '$CI_REGISTRY_PASSWORD' | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY"
+    - echo "📥 Pulling new images..."
+    - ssh -o StrictHostKeyChecking=no -p $VPS_PORT $VPS_USER@$VPS_HOST "cd $VPS_PATH && docker-compose -f docker-compose.prod.yml pull"
+    - echo "🔄 Restarting services..."
+    - ssh -o StrictHostKeyChecking=no -p $VPS_PORT $VPS_USER@$VPS_HOST "cd $VPS_PATH && docker-compose -f docker-compose.prod.yml up -d"
+    - echo "⏳ Waiting for services to start..."
+    - sleep 30
     - echo "📊 Checking service status..."
-    - ssh -o StrictHostKeyChecking=no -p 58934 batogov@89.169.190.114 "cd /home/batogov/fitmindcoach && docker-compose -f docker-compose.prod.yml ps"
+    - ssh -o StrictHostKeyChecking=no -p $VPS_PORT $VPS_USER@$VPS_HOST "cd $VPS_PATH && docker-compose -f docker-compose.prod.yml ps"
+    - echo "🔍 Checking API health..."
+    - ssh -o StrictHostKeyChecking=no -p $VPS_PORT $VPS_USER@$VPS_HOST "cd $VPS_PATH && curl -f http://localhost:8003/healthz || echo 'API health check failed'"
     - echo "✅ Deployment completed successfully!"
   only:
     - main
