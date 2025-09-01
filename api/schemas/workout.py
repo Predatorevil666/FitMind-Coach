@@ -11,12 +11,12 @@ class WorkoutBase(BaseModel):
     """Базовая схема тренировки."""
 
     date: datetime = Field(default_factory=get_utc_now)
-    type: WorkoutType = WorkoutType.OTHER
+    workout_type: WorkoutType = WorkoutType.OTHER
     name: str = Field(..., min_length=1, max_length=100)
     duration_minutes: int = Field(..., gt=0)
+    intensity: Optional[int] = Field(None, ge=1, le=10)  # 1-10 scale
     calories_burned: Optional[int] = Field(None, ge=0)
     notes: Optional[str] = None
-    exercises: Optional[dict] = None
 
 
 class WorkoutIn(WorkoutBase):

@@ -42,12 +42,12 @@ class CRUDWorkout(CRUDBase[Workout, WorkoutIn, WorkoutIn]):
         db_obj = Workout(
             user_id=user_id,
             date=obj_in.date,
-            type=obj_in.type,
+            workout_type=obj_in.workout_type,
             name=obj_in.name,
             duration_minutes=obj_in.duration_minutes,
+            intensity=obj_in.intensity,
             calories_burned=obj_in.calories_burned,
             notes=obj_in.notes,
-            exercises=obj_in.exercises,
         )
         db.add(db_obj)
         await db.commit()

@@ -23,10 +23,9 @@ class LabResult(Base):
     date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=get_utc_now
     )
-    name: Mapped[str] = mapped_column(String(100))
-    lab_name: Mapped[Optional[str]] = mapped_column(String(100))
+    test_type: Mapped[str] = mapped_column(String(100))
+    results: Mapped[Optional[dict]] = mapped_column(JSONB)
     notes: Mapped[Optional[str]] = mapped_column(Text)
-    results: Mapped[dict] = mapped_column(JSONB)
 
     # Отношения
     user: Mapped["User"] = relationship(back_populates="lab_results")

@@ -42,8 +42,7 @@ class CRUDLabResult(CRUDBase[LabResult, LabResultIn, LabResultIn]):
         db_obj = LabResult(
             user_id=user_id,
             date=obj_in.date,
-            name=obj_in.name,
-            lab_name=obj_in.lab_name,
+            test_type=obj_in.test_type,
             notes=obj_in.notes,
             results=obj_in.results,
         )

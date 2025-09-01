@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 from api.models.user import Goal
 
@@ -9,17 +9,18 @@ from api.models.user import Goal
 class UserBase(BaseModel):
     """Базовая схема пользователя."""
 
-    email: EmailStr
+    telegram_id: int
     username: str = Field(..., min_length=3, max_length=50)
-    telegram_id: Optional[int] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     is_active: bool = True
     is_superuser: bool = False
 
 
 class UserIn(UserBase):
-    """Схема для создания пользователя."""
+    """Схема для создания пользователя через Telegram."""
 
-    password: str = Field(..., min_length=8)
+    pass
 
 
 class UserOut(UserBase):
@@ -33,6 +34,15 @@ class UserOut(UserBase):
         from_attributes = True
 
 
+class TelegramUserCreate(BaseModel):
+    """Схема для создания пользователя из Telegram данных."""
+
+    telegram_id: int
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
 class TelegramAuthRequest(BaseModel):
     """Схема для авторизации по Telegram ID."""
 
@@ -40,14 +50,6 @@ class TelegramAuthRequest(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
-
-
-class TelegramLinkRequest(BaseModel):
-    """Схема для привязки Telegram ID к аккаунту."""
-
-    email: EmailStr
-    password: str
-    telegram_id: int
 
 
 class ProfileBase(BaseModel):

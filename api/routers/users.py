@@ -33,14 +33,23 @@ async def check_user_exists(
 @router.post("", response_model=UserOut)
 async def create_user(db: SessionDep, user_in: UserIn) -> UserOut:
     """
-    Создание нового пользователя.
+    Создание нового пользователя через Telegram.
     """
-    # Проверяем, существует ли пользователь с таким email
-    db_user = await user.get_by_email(db, email=user_in.email)
+    # Проверяем, что telegram_id передан
+    if not user_in.telegram_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telegram ID обязателен для регистрации",
+        )
+
+    # Проверяем, существует ли пользователь с таким telegram_id
+    db_user = await user.get_by_telegram_id(
+        db, telegram_id=user_in.telegram_id
+    )
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Пользователь с таким email уже существует",
+            detail="Пользователь с таким Telegram ID уже существует",
         )
 
     # Проверяем, существует ли пользователь с таким username

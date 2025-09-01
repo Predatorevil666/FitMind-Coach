@@ -10,10 +10,9 @@ class LabResultBase(BaseModel):
     """Базовая схема результатов лабораторных анализов."""
 
     date: datetime = Field(default_factory=get_utc_now)
-    name: str = Field(..., min_length=1, max_length=100)
-    lab_name: Optional[str] = Field(None, max_length=100)
+    test_type: str = Field(..., min_length=1, max_length=100)
     notes: Optional[str] = None
-    results: dict = Field(...)
+    results: Optional[dict] = Field(None)
 
 
 class LabResultIn(LabResultBase):

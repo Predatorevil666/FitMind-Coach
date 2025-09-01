@@ -42,14 +42,15 @@ class CRUDMeal(CRUDBase[Meal, MealIn, MealIn]):
         db_obj = Meal(
             user_id=user_id,
             date=obj_in.date,
-            type=obj_in.type,
-            name=obj_in.name,
+            meal_type=obj_in.meal_type,
+            food_name=obj_in.food_name,
+            quantity=obj_in.quantity,
+            unit=obj_in.unit,
             calories=obj_in.calories,
             protein_g=obj_in.protein_g,
             carbs_g=obj_in.carbs_g,
             fat_g=obj_in.fat_g,
             notes=obj_in.notes,
-            foods=obj_in.foods,
         )
         db.add(db_obj)
         await db.commit()

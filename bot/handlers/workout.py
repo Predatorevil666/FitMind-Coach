@@ -140,7 +140,7 @@ async def parse_workout_text(message: Message):
 
         workout_data = {
             "name": workout_name,
-            "type": workout_type,
+            "workout_type": workout_type,
             "duration_minutes": duration,
             "calories_burned": calories,
             "notes": message.text,
@@ -229,13 +229,14 @@ async def list_workouts(message: Message):
 
         # Определяем эмодзи для типа тренировки
         type_emoji = "🔄"
-        if workout["type"] == "strength":
+        workout_type = workout.get("workout_type", "").lower()
+        if workout_type == "strength":
             type_emoji = "💪"
-        elif workout["type"] == "cardio":
+        elif workout_type == "cardio":
             type_emoji = "🏃"
-        elif workout["type"] == "flexibility":
+        elif workout_type == "flexibility":
             type_emoji = "🧘"
-        elif workout["type"] == "hiit":
+        elif workout_type == "hiit":
             type_emoji = "⚡"
 
         # Получаем калории, если они есть
@@ -570,7 +571,7 @@ async def process_workout_notes(message: Message, state: FSMContext):
     # Формируем данные для API
     workout_data = {
         "name": data["name"],
-        "type": data["type"],
+        "workout_type": data["type"],
         "duration_minutes": data["duration_minutes"],
         "calories_burned": data["calories"],
         "notes": data.get("notes", ""),
