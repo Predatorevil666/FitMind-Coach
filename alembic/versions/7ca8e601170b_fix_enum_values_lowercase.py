@@ -20,7 +20,25 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Исправление регистра значений enum полей."""
     
-    # Исправление значений goal в таблице profiles
+    # 1. Добавляем новые enum значения в нижнем регистре
+    
+    # Добавляем новые значения в workouttype enum
+    op.execute("ALTER TYPE workouttype ADD VALUE 'strength'")
+    op.execute("ALTER TYPE workouttype ADD VALUE 'cardio'")
+    op.execute("ALTER TYPE workouttype ADD VALUE 'flexibility'")
+    op.execute("ALTER TYPE workouttype ADD VALUE 'hiit'")
+    op.execute("ALTER TYPE workouttype ADD VALUE 'other'")
+    
+    # Добавляем новые значения в mealtype enum
+    op.execute("ALTER TYPE mealtype ADD VALUE 'breakfast'")
+    op.execute("ALTER TYPE mealtype ADD VALUE 'lunch'")
+    op.execute("ALTER TYPE mealtype ADD VALUE 'dinner'")
+    op.execute("ALTER TYPE mealtype ADD VALUE 'snack'")
+    op.execute("ALTER TYPE mealtype ADD VALUE 'other'")
+    
+    # 2. Обновляем данные в таблицах
+    
+    # Исправление значений goal в таблице profiles (varchar поле)
     op.execute("""
         UPDATE profiles 
         SET goal = CASE 
@@ -34,32 +52,30 @@ def upgrade() -> None:
         WHERE goal != LOWER(goal);
     """)
     
-    # Исправление значений workout_type в таблице workouts
+    # Исправление значений type в таблице workouts (enum поле)
     op.execute("""
         UPDATE workouts 
-        SET workout_type = CASE 
-            WHEN workout_type = 'STRENGTH' THEN 'strength'
-            WHEN workout_type = 'CARDIO' THEN 'cardio'
-            WHEN workout_type = 'FLEXIBILITY' THEN 'flexibility'
-            WHEN workout_type = 'HIIT' THEN 'hiit'
-            WHEN workout_type = 'OTHER' THEN 'other'
-            ELSE LOWER(workout_type)
-        END
-        WHERE workout_type != LOWER(workout_type);
+        SET type = CASE 
+            WHEN type = 'STRENGTH' THEN 'strength'::workouttype
+            WHEN type = 'CARDIO' THEN 'cardio'::workouttype
+            WHEN type = 'FLEXIBILITY' THEN 'flexibility'::workouttype
+            WHEN type = 'HIIT' THEN 'hiit'::workouttype
+            WHEN type = 'OTHER' THEN 'other'::workouttype
+            ELSE type
+        END;
     """)
     
-    # Исправление значений meal_type в таблице meals
+    # Исправление значений type в таблице meals (enum поле)
     op.execute("""
         UPDATE meals 
-        SET meal_type = CASE 
-            WHEN meal_type = 'BREAKFAST' THEN 'breakfast'
-            WHEN meal_type = 'LUNCH' THEN 'lunch'
-            WHEN meal_type = 'DINNER' THEN 'dinner'
-            WHEN meal_type = 'SNACK' THEN 'snack'
-            WHEN meal_type = 'OTHER' THEN 'other'
-            ELSE LOWER(meal_type)
-        END
-        WHERE meal_type != LOWER(meal_type);
+        SET type = CASE 
+            WHEN type = 'BREAKFAST' THEN 'breakfast'::mealtype
+            WHEN type = 'LUNCH' THEN 'lunch'::mealtype
+            WHEN type = 'DINNER' THEN 'dinner'::mealtype
+            WHEN type = 'SNACK' THEN 'snack'::mealtype
+            WHEN type = 'OTHER' THEN 'other'::mealtype
+            ELSE type
+        END;
     """)
 
 
@@ -80,30 +96,31 @@ def downgrade() -> None:
         WHERE goal != UPPER(goal);
     """)
     
-    # Откат значений workout_type в таблице workouts
+    # Откат значений type в таблице workouts
     op.execute("""
         UPDATE workouts 
-        SET workout_type = CASE 
-            WHEN workout_type = 'strength' THEN 'STRENGTH'
-            WHEN workout_type = 'cardio' THEN 'CARDIO'
-            WHEN workout_type = 'flexibility' THEN 'FLEXIBILITY'
-            WHEN workout_type = 'hiit' THEN 'HIIT'
-            WHEN workout_type = 'other' THEN 'OTHER'
-            ELSE UPPER(workout_type)
-        END
-        WHERE workout_type != UPPER(workout_type);
+        SET type = CASE 
+            WHEN type = 'strength' THEN 'STRENGTH'::workouttype
+            WHEN type = 'cardio' THEN 'CARDIO'::workouttype
+            WHEN type = 'flexibility' THEN 'FLEXIBILITY'::workouttype
+            WHEN type = 'hiit' THEN 'HIIT'::workouttype
+            WHEN type = 'other' THEN 'OTHER'::workouttype
+            ELSE type
+        END;
     """)
     
-    # Откат значений meal_type в таблице meals
+    # Откат значений type в таблице meals
     op.execute("""
         UPDATE meals 
-        SET meal_type = CASE 
-            WHEN meal_type = 'breakfast' THEN 'BREAKFAST'
-            WHEN meal_type = 'lunch' THEN 'LUNCH'
-            WHEN meal_type = 'dinner' THEN 'DINNER'
-            WHEN meal_type = 'snack' THEN 'SNACK'
-            WHEN meal_type = 'other' THEN 'OTHER'
-            ELSE UPPER(meal_type)
-        END
-        WHERE meal_type != UPPER(meal_type);
+        SET type = CASE 
+            WHEN type = 'breakfast' THEN 'BREAKFAST'::mealtype
+            WHEN type = 'lunch' THEN 'LUNCH'::mealtype
+            WHEN type = 'dinner' THEN 'DINNER'::mealtype
+            WHEN type = 'snack' THEN 'SNACK'::mealtype
+            WHEN type = 'other' THEN 'OTHER'::mealtype
+            ELSE type
+        END;
     """)
+    
+    # Примечание: Удаление enum значений в PostgreSQL сложнее
+    # и может привести к проблемам, поэтому оставляем их
