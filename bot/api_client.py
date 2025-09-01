@@ -362,10 +362,14 @@ class APIClient:
         """
         token = self.get_token(telegram_id)
         if not token:
-            logger.error(
-                f"Необходима авторизация для пользователя {telegram_id}"
-            )
-            return None
+            # Автоматически пытаемся авторизоваться
+            auth_success = await self.telegram_auth(telegram_id)
+            if not auth_success:
+                logger.error(
+                    f"Не удалось авторизоваться для пользователя {telegram_id}"
+                )
+                return None
+            token = self.get_token(telegram_id)
 
         await self.start_session()
         headers = {"Authorization": f"Bearer {token}"}
