@@ -365,10 +365,10 @@ class APIClient:
             # Автоматически пытаемся авторизоваться
             auth_success = await self.telegram_auth(telegram_id)
             if not auth_success:
-            logger.error(
+                logger.error(
                     f"Не удалось авторизоваться для пользователя {telegram_id}"
-            )
-            return None
+                )
+                return None
             token = self.get_token(telegram_id)
 
         await self.start_session()
