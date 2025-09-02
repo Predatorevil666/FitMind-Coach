@@ -84,7 +84,8 @@ def split_long_message(text: str, max_length: int = 3500) -> list[str]:
                             parts.append(current_part.strip())
                             current_part = sentence
                         else:
-                            # Если одно предложение слишком длинное, разбиваем по словам
+                            # Если одно предложение слишком длинное,
+                            #  разбиваем по словам
                             words = sentence.split()
                             for word in words:
                                 word_length = len(current_part) + len(word) + 1
@@ -93,7 +94,8 @@ def split_long_message(text: str, max_length: int = 3500) -> list[str]:
                                         parts.append(current_part.strip())
                                         current_part = word
                                     else:
-                                        # Если одно слово слишком длинное, обрезаем
+                                        # Если одно слово слишком длинное,
+                                        #  обрезаем
                                         parts.append(word[:max_length])
                                         current_part = word[max_length:]
                                 else:
@@ -148,7 +150,8 @@ async def process_advice_query(message: Message, state: FSMContext):
     user_id = get_user_id(message)
 
     logger.info(
-        f"=== QUERY PROCESSING === Получен запрос от {user_id}: {query[:100]}..."
+        f"=== QUERY PROCESSING === Получен запрос от {user_id}: "
+        f"{query[:100]}..."
     )
 
     if query == "❌ Отмена":
@@ -174,7 +177,8 @@ async def process_advice_query(message: Message, state: FSMContext):
         return
     elif len(query) > 5000:  # Предупреждение для длинных запросов
         await message.answer(
-            "⚠️ Ваш запрос довольно длинный. Обработка может занять больше времени.\n"
+            "⚠️ Ваш запрос довольно длинный. "
+            "Обработка может занять больше времени.\n"
             "🕐 Ожидайте ответ в течение 2-3 минут..."
         )
 
