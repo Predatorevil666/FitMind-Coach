@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.models.base import Base
@@ -27,17 +27,24 @@ class User(Base):
 
     __tablename__ = "users"
 
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    telegram_id: Mapped[Optional[int]] = mapped_column(
-        unique=True, index=True, nullable=True
+    # Только telegram_id - основной идентификатор
+    telegram_id: Mapped[int] = mapped_column(
+        Integer, unique=True, index=True, nullable=False
     )
-    is_active: Mapped[bool] = mapped_column(default=True)
-    is_superuser: Mapped[bool] = mapped_column(default=False)
+
+    # Автогенерируемые поля из Telegram
+    username: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+    first_name: Mapped[Optional[str]] = mapped_column(String(100))
+    last_name: Mapped[Optional[str]] = mapped_column(String(100))
+
+    # Системные поля
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Отношения
-    profile: Mapped["Profile"] = relationship(
+    profile: Mapped[Optional["Profile"]] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     workouts: Mapped[list["Workout"]] = relationship(
@@ -60,13 +67,17 @@ class Profile(Base):
         ForeignKey("users.id", ondelete="CASCADE")
     )
     full_name: Mapped[Optional[str]] = mapped_column(String(100))
-    age: Mapped[Optional[int]] = mapped_column()
-    weight: Mapped[Optional[float]] = mapped_column()
-    height: Mapped[Optional[float]] = mapped_column()
-    goal: Mapped[Optional[Goal]] = mapped_column(default=Goal.OTHER)
-    target_weight: Mapped[Optional[float]] = mapped_column()
-    workouts_per_week: Mapped[Optional[float]] = mapped_column()
-    avg_calories: Mapped[Optional[int]] = mapped_column()
+    age: Mapped[Optional[int]] = mapped_column(Integer)
+    weight: Mapped[Optional[int]] = mapped_column(Integer)  # В килограммах
+    height: Mapped[Optional[int]] = mapped_column(Integer)  # В сантиметрах
+    goal: Mapped[Optional[str]] = mapped_column(
+        String(50), default=Goal.OTHER.value
+    )
+    target_weight: Mapped[Optional[int]] = mapped_column(
+        Integer
+    )  # В килограммах
+    workouts_per_week: Mapped[Optional[int]] = mapped_column(Integer)
+    avg_calories: Mapped[Optional[int]] = mapped_column(Integer)
 
     # Отношения
     user: Mapped["User"] = relationship(back_populates="profile")

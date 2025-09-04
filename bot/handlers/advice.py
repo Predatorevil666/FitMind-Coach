@@ -19,13 +19,41 @@ def get_user_id(message: Message) -> int:
     return message.from_user.id if message.from_user else 0
 
 
-def split_long_message(text: str, max_length: int = 4000) -> list[str]:
+def clean_html_tags(text: str) -> str:
+    """
+    Очищает HTML-тэги и проблемные символы для безопасной отправки в Telegram.
+
+    Args:
+        text: Текст с HTML-тэгами
+
+    Returns:
+        Очищенный текст
+    """
+    # Убираем все HTML-тэги
+    text = re.sub(r"<[^>]+>", "", text)
+
+    # Убираем HTML-сущности
+    text = text.replace("&lt;", "<")
+    text = text.replace("&gt;", ">")
+    text = text.replace("&amp;", "&")
+    text = text.replace("&quot;", '"')
+    text = text.replace("&#39;", "'")
+
+    # Убираем лишние пробелы и переносы строк
+    text = re.sub(r"\n\s*\n", "\n\n", text)  # Убираем множественные переносы
+    text = re.sub(r" +", " ", text)  # Убираем множественные пробелы
+    text = text.strip()
+
+    return text
+
+
+def split_long_message(text: str, max_length: int = 3500) -> list[str]:
     """
     Разбивает длинное сообщение на части, не превышающие max_length.
 
     Args:
         text: Текст для разбиения
-        max_length: Максимальная длина части (по умолчанию 4000)
+        max_length: Максимальная длина части (по умолчанию 3500)
 
     Returns:
         Список частей сообщения
@@ -36,34 +64,50 @@ def split_long_message(text: str, max_length: int = 4000) -> list[str]:
     parts = []
     current_part = ""
 
-    # Разбиваем по предложениям, чтобы не обрывать текст посередине
-    sentences = re.split(r"(?<=[.!?])\s+", text)
+    # Сначала пробуем разбить по абзацам (двойной перенос строки)
+    paragraphs = text.split("\n\n")
 
-    for sentence in sentences:
-        # Если добавление предложения превысит лимит
-        sentence_length = len(current_part) + len(sentence) + 1
-        if sentence_length > max_length:
+    for paragraph in paragraphs:
+        # Если добавление абзаца превысит лимит
+        paragraph_length = len(current_part) + len(paragraph) + 2
+        if paragraph_length > max_length:
             if current_part:
                 parts.append(current_part.strip())
-                current_part = sentence
+                current_part = paragraph
             else:
-                # Если одно предложение слишком длинное, разбиваем по словам
-                words = sentence.split()
-                for word in words:
-                    word_length = len(current_part) + len(word) + 1
-                    if word_length > max_length:
+                # Если один абзац слишком длинный, разбиваем по предложениям
+                sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+                for sentence in sentences:
+                    sentence_length = len(current_part) + len(sentence) + 1
+                    if sentence_length > max_length:
                         if current_part:
                             parts.append(current_part.strip())
-                            current_part = word
+                            current_part = sentence
                         else:
-                            # Если одно слово слишком длинное,
-                            # разбиваем по символам
-                            parts.append(word[:max_length])
-                            current_part = word[max_length:]
+                            # Если одно предложение слишком длинное,
+                            #  разбиваем по словам
+                            words = sentence.split()
+                            for word in words:
+                                word_length = len(current_part) + len(word) + 1
+                                if word_length > max_length:
+                                    if current_part:
+                                        parts.append(current_part.strip())
+                                        current_part = word
+                                    else:
+                                        # Если одно слово слишком длинное,
+                                        #  обрезаем
+                                        parts.append(word[:max_length])
+                                        current_part = word[max_length:]
+                                else:
+                                    current_part += (
+                                        " " + word if current_part else word
+                                    )
                     else:
-                        current_part += " " + word if current_part else word
+                        current_part += (
+                            " " + sentence if current_part else sentence
+                        )
         else:
-            current_part += " " + sentence if current_part else sentence
+            current_part += "\n\n" + paragraph if current_part else paragraph
 
     # Добавляем последнюю часть
     if current_part.strip():
@@ -87,8 +131,13 @@ async def cmd_advice(message: Message, state: FSMContext):
     user_id = get_user_id(message)
     logger.info(f"Пользователь {user_id} запросил совет")
     await message.answer(
-        "Какой совет вы хотели бы получить? Опишите ваш вопрос о фитнесе, "
-        "питании или здоровом образе жизни.",
+        "🤖 Какой совет вы хотели бы получить?\n\n"
+        "Опишите ваш вопрос о фитнесе, питании или здоровом образе жизни.\n\n"
+        "📏 Лимиты:\n"
+        "• До 5000 символов - быстрая обработка\n"
+        "• До 8000 символов - может потребоваться больше времени\n"
+        "• Свыше 8000 символов - разбейте на части\n\n"
+        "💡 Совет: Конкретные вопросы дают лучшие ответы!",
         reply_markup=ReplyKeyboardRemove(),
     )
     await state.set_state(AdviceForm.waiting_for_query)
@@ -101,7 +150,8 @@ async def process_advice_query(message: Message, state: FSMContext):
     user_id = get_user_id(message)
 
     logger.info(
-        f"=== QUERY PROCESSING === Получен запрос от {user_id}: {query}"
+        f"=== QUERY PROCESSING === Получен запрос от {user_id}: "
+        f"{query[:100]}..."
     )
 
     if query == "❌ Отмена":
@@ -112,9 +162,29 @@ async def process_advice_query(message: Message, state: FSMContext):
         )
         return
 
+    # Проверяем длину запроса
+    if len(query) > 8000:  # Увеличиваем лимит до 8000 символов
+        await message.answer(
+            "⚠️ Ваш запрос слишком длинный (больше 8000 символов).\n\n"
+            "💡 Рекомендации:\n"
+            "• Разбейте вопрос на части\n"
+            "• Задайте несколько коротких вопросов\n"
+            "• Сократите текст, оставив главное\n\n"
+            "Попробуйте снова с более коротким запросом.",
+            reply_markup=main_kb,
+        )
+        await state.clear()
+        return
+    elif len(query) > 5000:  # Предупреждение для длинных запросов
+        await message.answer(
+            "⚠️ Ваш запрос довольно длинный. "
+            "Обработка может занять больше времени.\n"
+            "🕐 Ожидайте ответ в течение 2-3 минут..."
+        )
+
     # Отправляем сообщение о том, что запрос обрабатывается
     processing_msg = await message.answer(
-        "🔍 Анализирую данные... Это займет 60-90 секунд."
+        "🤖 Обрабатываю ваш запрос, пожалуйста, подождите..."
     )
 
     try:
@@ -151,6 +221,9 @@ async def process_advice_query(message: Message, state: FSMContext):
         # Получаем совет от Mistral AI с учетом данных пользователя
         advice = await mistral_client.get_advice(query, user_data)
 
+        # Очищаем HTML-тэги из ответа
+        advice = clean_html_tags(advice)
+
         # Очищаем состояние
         await state.clear()
 
@@ -161,8 +234,7 @@ async def process_advice_query(message: Message, state: FSMContext):
         if message_parts:
             first_part = message_parts[0]
             await message.answer(
-                f"💡 <b>Персонализированный совет:</b>\n\n{first_part}",
-                parse_mode="HTML",
+                f"💡 Персонализированный совет:\n\n{first_part}",
                 reply_markup=main_kb if len(message_parts) == 1 else None,
             )
 
@@ -171,7 +243,6 @@ async def process_advice_query(message: Message, state: FSMContext):
                 is_last = i == len(message_parts)
                 await message.answer(
                     part,
-                    parse_mode="HTML",
                     reply_markup=main_kb if is_last else None,
                 )
 

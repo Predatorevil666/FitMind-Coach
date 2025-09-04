@@ -113,13 +113,14 @@ async def parse_food_text(message: Message):
 
     # Формируем данные для API
     meal_data = {
-        "name": food_name.capitalize(),
-        "type": "other",
+        "food_name": food_name.capitalize(),
+        "meal_type": "other",
+        "quantity": weight,
+        "unit": "г",
         "calories": calories,
         "protein_g": protein,
         "fat_g": fat,
         "carbs_g": carbs,
-        "weight_g": weight,
         "date": format_datetime(get_utc_now()),
     }
 
@@ -365,8 +366,8 @@ async def process_meal_notes(message: Message, state: FSMContext):
 
     # Формируем данные для API
     meal_data = {
-        "name": data["name"],
-        "type": data["type"],
+        "food_name": data["name"],
+        "meal_type": data["type"],
         "calories": data["calories"],
         "protein_g": data["protein_g"],
         "fat_g": data["fat_g"],
@@ -439,7 +440,7 @@ async def list_meals(message: Message):
 
     for meal in meals:
         # Преобразуем тип приема пищи в читаемый формат
-        meal_type = MEAL_TYPE_DISPLAY.get(meal["type"], "Другое")
+        meal_type = MEAL_TYPE_DISPLAY.get(meal.get("meal_type"), "Другое")
 
         # Форматируем дату
         meal_date = (
@@ -447,8 +448,8 @@ async def list_meals(message: Message):
         )
 
         meals_text += (
-            f"• {meal_date}: {meal['name']}\n"
-            f"  Тип: {meal_type}, {meal['calories']} ккал\n"
+            f"• {meal_date}: {meal.get('food_name', 'Блюдо')}\n"
+            f"  Тип: {meal_type}, {meal.get('calories', 0)} ккал\n"
             f"  БЖУ: {meal.get('protein_g', 0)}г / "
             f"{meal.get('fat_g', 0)}г / {meal.get('carbs_g', 0)}г\n\n"
         )

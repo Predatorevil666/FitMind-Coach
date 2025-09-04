@@ -203,6 +203,56 @@ class APIClient:
             logger.error(f"Ошибка при регистрации: {e}")
             return False
 
+    async def register_from_telegram(
+        self,
+        telegram_id: int,
+        username: str,
+        first_name: str = None,
+        last_name: str = None,
+    ) -> bool:
+        """
+        Регистрация пользователя из Telegram данных.
+
+        Args:
+            telegram_id: Telegram ID пользователя.
+            username: Имя пользователя.
+            first_name: Имя пользователя в Telegram.
+            last_name: Фамилия пользователя в Telegram.
+
+        Returns:
+            bool: True, если регистрация успешна, иначе False.
+        """
+        await self.start_session()
+        try:
+            user_data = {
+                "telegram_id": telegram_id,
+                "username": username,
+                "first_name": first_name,
+                "last_name": last_name,
+                "is_active": True,
+                "is_superuser": False,
+            }
+
+            async with self.session.post(
+                f"{self.base_url}/users", json=user_data
+            ) as response:
+                if response.status == 200:
+                    logger.info(
+                        f"Успешная регистрация пользователя {username} "
+                        f"с Telegram ID {telegram_id}"
+                    )
+                    return True
+                else:
+                    error_text = await response.text()
+                    logger.error(
+                        f"Ошибка регистрации пользователя {username}: "
+                        f"{response.status}, {error_text}"
+                    )
+                    return False
+        except Exception as e:
+            logger.error(f"Ошибка при регистрации: {e}")
+            return False
+
     async def telegram_auth(self, telegram_id: int) -> bool:
         """
         Авторизация пользователя по Telegram ID.
@@ -312,10 +362,14 @@ class APIClient:
         """
         token = self.get_token(telegram_id)
         if not token:
-            logger.error(
-                f"Необходима авторизация для пользователя {telegram_id}"
-            )
-            return None
+            # Автоматически пытаемся авторизоваться
+            auth_success = await self.telegram_auth(telegram_id)
+            if not auth_success:
+                logger.error(
+                    f"Не удалось авторизоваться для пользователя {telegram_id}"
+                )
+                return None
+            token = self.get_token(telegram_id)
 
         await self.start_session()
         headers = {"Authorization": f"Bearer {token}"}

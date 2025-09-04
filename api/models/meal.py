@@ -3,7 +3,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.core.utils import get_utc_now
@@ -34,14 +33,15 @@ class Meal(Base):
     date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=get_utc_now
     )
-    type: Mapped[MealType] = mapped_column(default=MealType.OTHER)
-    name: Mapped[str] = mapped_column(String(100))
+    meal_type: Mapped[MealType] = mapped_column(default=MealType.OTHER)
+    food_name: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[Optional[float]] = mapped_column()
+    unit: Mapped[Optional[str]] = mapped_column(String(50))
     calories: Mapped[Optional[int]] = mapped_column()
     protein_g: Mapped[Optional[float]] = mapped_column()
     carbs_g: Mapped[Optional[float]] = mapped_column()
     fat_g: Mapped[Optional[float]] = mapped_column()
     notes: Mapped[Optional[str]] = mapped_column(Text)
-    foods: Mapped[Optional[dict]] = mapped_column(JSONB)
 
     # Отношения
     user: Mapped["User"] = relationship(back_populates="meals")

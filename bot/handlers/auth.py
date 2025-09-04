@@ -19,340 +19,112 @@ def get_user_api_client(telegram_id: int) -> UserAPIClient:
 
 # Определение состояний для FSM
 class AuthForm(StatesGroup):
-    username = State()
-    password = State()
+    # Удалены username и password - теперь авторизация только через Telegram ID
+    pass
 
 
 # Определение состояний для регистрации
 class RegisterForm(StatesGroup):
-    email = State()
     username = State()
-    password = State()
-    password_confirm = State()
 
 
 # Обработчик команды /login
 @router.message(Command("login"))
 async def cmd_login(message: Message, state: FSMContext):
-    """Обработчик команды /login."""
-    await state.set_state(AuthForm.username)
-    await message.answer(
-        "Введите ваш email или имя пользователя:",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-
-
-# Обработчик для ввода имени пользователя
-@router.message(AuthForm.username)
-async def process_username(message: Message, state: FSMContext):
-    """Обработчик ввода имени пользователя."""
-    if not message.text:
-        await message.answer(
-            "❌ Пожалуйста, введите корректное имя пользователя или email:",
-        )
-        return
-
-    username_or_email = message.text.strip()
-
-    # Проверяем, похоже ли это на email
-    is_email = "@" in username_or_email and "." in username_or_email
-
-    if not is_email and len(username_or_email) < 3:
-        await message.answer(
-            "❌ Имя пользователя должно содержать не менее 3 символов. "
-            "Пожалуйста, введите корректное имя пользователя или email:",
-        )
-        return
-
-    # Проверяем существование пользователя через API
-    telegram_id = message.from_user.id if message.from_user else 0
-    user_api = get_user_api_client(telegram_id)
-    user_exists = await user_api.client.check_user_exists(username_or_email)
-
-    if not user_exists:
-        await message.answer(
-            f"❌ Пользователь с {'email' if is_email else 'именем'} "
-            f"'{username_or_email}' не найден.\n\n"
-            "Пожалуйста, проверьте правильность введенных данных или "
-            "зарегистрируйтесь с помощью команды /register",
-        )
-        return
-
-    await state.update_data(username=username_or_email)
-    await state.set_state(AuthForm.password)
-    await message.answer(
-        "Введите ваш пароль:",
-    )
-
-
-# Обработчик для ввода пароля
-@router.message(AuthForm.password)
-async def process_password(message: Message, state: FSMContext):
-    """Обработчик ввода пароля."""
-    await state.update_data(password=message.text)
-
-    # Получаем данные из состояния
-    data = await state.get_data()
-    username_or_email = data["username"]
+    """Обработчик команды /login - автоматическая авторизация
+    через Telegram ID."""
+    # Очищаем состояние
+    await state.clear()
 
     # Получаем Telegram ID пользователя
     telegram_id = message.from_user.id if message.from_user else None
 
-    if telegram_id:
-        user_api = get_user_api_client(telegram_id)
+    if not telegram_id:
+        await message.answer("❌ Не удалось получить ваш Telegram ID.")
+        return
 
-        # Проверяем, является ли введенное значение email
-        is_email = "@" in username_or_email and "." in username_or_email
+    user_api = get_user_api_client(telegram_id)
 
-        if is_email:
-            # Если это email, пытаемся привязать Telegram ID к аккаунту
-            link_result = await user_api.client.link_telegram(
-                username_or_email, data["password"], telegram_id
-            )
+    # Пытаемся авторизоваться по Telegram ID
+    auth_result = await user_api.telegram_auth()
 
-            if link_result:
-                # Привязка успешна, теперь авторизуемся по Telegram ID
-                auth_result = await user_api.telegram_auth()
-                if auth_result:
-                    await message.answer(
-                        "✅ Telegram аккаунт успешно привязан "
-                        "и вы вошли в систему!\n"
-                        "Теперь вы можете использовать бота без повторной "
-                        "авторизации.",
-                        reply_markup=main_kb,
-                    )
-                else:
-                    await message.answer(
-                        "✅ Telegram аккаунт привязан, но возникла ошибка "
-                        "при авторизации.\n"
-                        "Попробуйте команду /start снова.",
-                        reply_markup=main_kb,
-                    )
-                # Очищаем состояние и выходим
-                await state.clear()
-                return
-
-        # Если это username или привязка не удалась - обычная авторизация
-        result = await user_api.login(username_or_email, data["password"])
-        if result:
-            if is_email:
-                await message.answer(
-                    "✅ Вы успешно вошли в систему!\n"
-                    "⚠️ Telegram аккаунт не был привязан. "
-                    "Возможно, он уже привязан к другому аккаунту.",
-                    reply_markup=main_kb,
-                )
-            else:
-                # Для username входа - проверяем, привязан ли уже аккаунт
-                # пытаясь авторизоваться через Telegram ID
-                telegram_auth_result = await user_api.telegram_auth()
-                if telegram_auth_result:
-                    await message.answer(
-                        "✅ Вы успешно вошли в систему!\n"
-                        "🔗 Ваш Telegram аккаунт уже привязан к профилю.",
-                        reply_markup=main_kb,
-                    )
-                else:
-                    await message.answer(
-                        "✅ Вы успешно вошли в систему!\n"
-                        "💡 Для автоматического входа в будущем можете "
-                        "привязать Telegram аккаунт через профиль.",
-                        reply_markup=main_kb,
-                    )
-        else:
-            await message.answer(
-                "❌ Не удалось войти в систему. \n\n"
-                "Возможные причины:\n"
-                "1. Неверный пароль\n"
-                "2. Пользователь с таким email/именем не существует\n\n"
-                "Пожалуйста, проверьте данные и попробуйте снова или "
-                "зарегистрируйтесь с помощью команды /register",
-            )
-    else:
+    if auth_result:
         await message.answer(
-            "❌ Ошибка получения данных пользователя.",
+            "✅ Вы успешно авторизованы!\n\n"
+            "Теперь вы можете использовать все функции бота. "
+            "Используйте команду /menu для доступа к основным функциям.",
             reply_markup=main_kb,
         )
-
-    # Очищаем состояние
-    await state.clear()
+    else:
+        await message.answer(
+            "❌ Не удалось войти в систему.\n\n"
+            "Возможные причины:\n"
+            "• Вы не зарегистрированы в системе\n"
+            "• Проблемы с сервером\n\n"
+            "Пожалуйста, зарегистрируйтесь с помощью команды /register",
+            reply_markup=main_kb,
+        )
 
 
 # Обработчик команды /register
 @router.message(Command("register"))
 async def cmd_register(message: Message, state: FSMContext):
     """Обработчик команды /register."""
-    await state.set_state(RegisterForm.email)
-    await message.answer(
-        "Начинаем процесс регистрации!\n\nВведите ваш email:",
-    )
-
-
-# Обработчик для ввода email
-@router.message(RegisterForm.email)
-async def process_email(message: Message, state: FSMContext):
-    """Обработчик ввода email."""
-    if not message.text:
-        await message.answer(
-            "❌ Пожалуйста, введите корректный email:",
-        )
-        return
-
-    email = message.text.strip()
-
-    # Валидация email с подробными сообщениями об ошибках
-    from bot.validators import validate_email
-
-    is_valid, error_message = validate_email(email)
-
-    if not is_valid:
-        await message.answer(
-            f"❌ {error_message}\n\nПожалуйста, введите корректный email:",
-        )
-        return
-
-    await state.update_data(email=email)
-    await state.set_state(RegisterForm.username)
-
-    await message.answer(
-        "Введите имя пользователя (не менее 3 символов):",
-    )
-
-
-# Обработчик для ввода имени пользователя при регистрации
-@router.message(RegisterForm.username)
-async def process_reg_username(message: Message, state: FSMContext):
-    """Обработчик ввода имени пользователя при регистрации."""
-    if not message.text:
-        await message.answer(
-            "❌ Пожалуйста, введите имя пользователя:",
-        )
-        return
-
-    username = message.text.strip()
-
-    # Валидация имени пользователя
-    from bot.validators import validate_username
-
-    is_valid, error_message = validate_username(username)
-
-    if not is_valid:
-        await message.answer(
-            f"❌ {error_message}\n\n"
-            "Пожалуйста, введите другое имя пользователя:",
-        )
-        return
-
-    await state.update_data(username=username)
-    await state.set_state(RegisterForm.password)
-
-    await message.answer(
-        "Введите пароль (не менее 8 символов):",
-    )
-
-
-# Обработчик для ввода пароля при регистрации
-@router.message(RegisterForm.password)
-async def process_reg_password(message: Message, state: FSMContext):
-    """Обработчик ввода пароля при регистрации."""
-    if not message.text:
-        await message.answer(
-            "❌ Пожалуйста, введите пароль:",
-        )
-        return
-
-    password = message.text
-
-    # Валидация пароля
-    from bot.validators import validate_password
-
-    is_valid, error_message = validate_password(password)
-
-    if not is_valid:
-        await message.answer(
-            f"❌ {error_message}\n\nПожалуйста, введите другой пароль:",
-        )
-        return
-
-    await state.update_data(password=password)
-    await state.set_state(RegisterForm.password_confirm)
-
-    await message.answer(
-        "Подтвердите пароль:",
-    )
-
-
-# Обработчик для подтверждения пароля
-@router.message(RegisterForm.password_confirm)
-async def process_password_confirm(message: Message, state: FSMContext):
-    """Обработчик подтверждения пароля."""
-    if not message.text:
-        await message.answer(
-            "❌ Пожалуйста, подтвердите пароль:",
-        )
-        return
-
-    password_confirm = message.text
-    data = await state.get_data()
-
-    # Проверка совпадения паролей
-    from bot.validators import validate_passwords_match
-
-    is_valid, error_message = validate_passwords_match(
-        data["password"], password_confirm
-    )
-
-    if not is_valid:
-        await message.answer(
-            f"❌ {error_message}. Пожалуйста, введите пароль заново:",
-        )
-        await state.set_state(RegisterForm.password)
-        return
-
-    # Получаем Telegram ID для создания пользовательского API клиента
+    # Получаем Telegram ID пользователя
     telegram_id = message.from_user.id if message.from_user else None
 
-    if telegram_id:
-        user_api = get_user_api_client(telegram_id)
+    if not telegram_id:
+        await message.answer("❌ Не удалось получить ваш Telegram ID.")
+        return
 
-        # Отправляем запрос к API для регистрации
-        result = await user_api.client.register(
-            data["email"], data["username"], data["password"], telegram_id
+    # Проверяем, не зарегистрирован ли уже пользователь
+    user_api = get_user_api_client(telegram_id)
+
+    # Пытаемся авторизоваться по Telegram ID
+    auth_result = await user_api.telegram_auth()
+    if auth_result:
+        await message.answer(
+            "✅ Вы уже зарегистрированы в системе!\n\n"
+            "Можете использовать команду /menu для доступа к функциям.",
+            reply_markup=main_kb,
         )
+        return
 
-        if result:
-            # Автоматически входим в систему
-            login_result = await user_api.login(
-                data["email"], data["password"]
+    # Регистрируем пользователя автоматически
+    user = message.from_user
+    username = user.username or f"user_{telegram_id}"
+
+    result = await user_api.client.register_from_telegram(
+        telegram_id=telegram_id,
+        username=username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+
+    if result:
+        # Автоматически авторизуемся
+        auth_result = await user_api.telegram_auth()
+
+        if auth_result:
+            await message.answer(
+                "✅ Добро пожаловать в FitMind Coach!\n\n"
+                "Вы успешно зарегистрированы и авторизованы.\n"
+                "Теперь создайте профиль с помощью команды /create_profile",
+                reply_markup=main_kb,
             )
-
-            if login_result:
-                await message.answer(
-                    "✅ Вы успешно зарегистрировались и вошли в систему!\n\n"
-                    "Теперь вам нужно создать профиль с помощью команды "
-                    "/create_profile",
-                    reply_markup=main_kb,
-                )
-            else:
-                await message.answer(
-                    "✅ Вы успешно зарегистрировались!\n\n"
-                    "Теперь вы можете войти в систему с помощью команды "
-                    "/login",
-                    reply_markup=main_kb,
-                )
         else:
             await message.answer(
-                "❌ Не удалось зарегистрироваться.\n\n"
-                "Возможные причины:\n"
-                "• Пользователь с таким email уже существует\n"
-                "• Имя пользователя уже занято\n"
-                "• Проблемы с сервером\n\n"
-                "Попробуйте использовать другой email или имя пользователя.",
+                "✅ Вы успешно зарегистрированы!\n\n"
+                "Попробуйте использовать команду /start для входа в систему.",
                 reply_markup=main_kb,
             )
     else:
         await message.answer(
-            "❌ Ошибка получения данных пользователя.",
+            "❌ Не удалось зарегистрироваться.\n\n"
+            "Возможные причины:\n"
+            "• Вы уже зарегистрированы с этого Telegram аккаунта\n"
+            "• Проблемы с сервером\n\n"
+            "Попробуйте использовать команду /start",
             reply_markup=main_kb,
         )
 
