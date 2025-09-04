@@ -5,7 +5,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message
 
 from bot.api_client import UserAPIClient
-from bot.constants import CALORIES_PER_MIN, WORKOUT_TYPE_DISPLAY
+from bot.constants import (
+    CALORIES_PER_MIN,
+    SPECIFIC_EXERCISES,
+    TEMPLATE_WORKOUTS,
+    WORKOUT_TYPE_DISPLAY,
+)
 from bot.keyboards.reply import (
     main_kb,
     workout_form_kb,
@@ -38,30 +43,6 @@ class WorkoutForm(StatesGroup):
     duration = State()
     calories = State()
     notes = State()
-
-
-# Словарь соответствия шаблонных названий типам тренировок
-WORKOUT_TEMPLATES = {
-    "💪 Силовая тренировка": "strength",
-    "🏃 Кардио тренировка": "cardio",
-    "🦵 Тренировка ног": "strength",
-    "💪 Тренировка рук": "strength",
-    "🏋️ Тренировка спины": "strength",
-    "🫁 Тренировка груди": "strength",
-    "🧘 Йога": "flexibility",
-    "🤸 Растяжка": "flexibility",
-}
-
-# Словарь соответствий шаблонных тренировок и их типов
-TEMPLATE_WORKOUTS = {
-    "💪 Силовая тренировка": "strength",
-    "🏃 Кардио тренировка": "cardio",
-    "🧘 Йога": "flexibility",
-    "🦵 Тренировка ног": "strength",
-    "🏋️ Тренировка рук": "strength",
-    "🫁 Тренировка спины": "strength",
-    "🤸 Тренировка груди": "strength",
-}
 
 
 # Обработчик команды /workout
@@ -141,9 +122,25 @@ async def parse_workout_text(message: Message):
         calories = int(base_calories * intensity_factor)
 
         # Формируем данные для API
+        # Пытаемся извлечь конкретное упражнение из текста
+        text_lower = message.text.lower()
+        specific_exercise = None
+
+        # Ищем конкретные упражнения
+        for exercise in SPECIFIC_EXERCISES:
+            if exercise in text_lower:
+                specific_exercise = exercise.capitalize()
+                break
+
+        # Формируем название тренировки
+        if specific_exercise:
+            workout_name = specific_exercise
+        else:
+            workout_name = f"{workout_type.capitalize()} тренировка"
+
         workout_data = {
-            "name": f"{workout_type.capitalize()} тренировка",
-            "type": workout_type,
+            "name": workout_name,
+            "workout_type": workout_type,
             "duration_minutes": duration,
             "calories_burned": calories,
             "notes": message.text,
@@ -232,21 +229,35 @@ async def list_workouts(message: Message):
 
         # Определяем эмодзи для типа тренировки
         type_emoji = "🔄"
-        if workout["type"] == "strength":
+        workout_type = workout.get("workout_type", "").lower()
+        if workout_type == "strength":
             type_emoji = "💪"
-        elif workout["type"] == "cardio":
+        elif workout_type == "cardio":
             type_emoji = "🏃"
-        elif workout["type"] == "flexibility":
+        elif workout_type == "flexibility":
             type_emoji = "🧘"
-        elif workout["type"] == "hiit":
+        elif workout_type == "hiit":
             type_emoji = "⚡"
 
         # Получаем калории, если они есть
         calories = workout.get("calories_burned")
         calories_text = f"🔥 {calories} ккал" if calories else "🔥 не указано"
 
+        # Формируем описание тренировки
+        workout_description = workout["name"]
+
+        # Если есть заметки с деталями упражнений, добавляем их
+        notes = workout.get("notes", "").strip()
+        if notes and notes != "-" and len(notes) > 10:
+            # Ограничиваем длину заметок для краткого отображения
+            if len(notes) > 50:
+                notes_short = notes[:47] + "..."
+            else:
+                notes_short = notes
+            workout_description = f"{workout['name']}: {notes_short}"
+
         workouts_text += (
-            f"*{workout_date}*: {type_emoji} {workout['name']}\n"
+            f"*{workout_date}*: {type_emoji} {workout_description}\n"
             f"⏱ {workout['duration_minutes']} мин, {calories_text}\n\n"
         )
 
@@ -560,7 +571,7 @@ async def process_workout_notes(message: Message, state: FSMContext):
     # Формируем данные для API
     workout_data = {
         "name": data["name"],
-        "type": data["type"],
+        "workout_type": data["type"],
         "duration_minutes": data["duration_minutes"],
         "calories_burned": data["calories"],
         "notes": data.get("notes", ""),

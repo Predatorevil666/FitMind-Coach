@@ -113,7 +113,7 @@ async def parse_lab_text(message: Message, state: FSMContext):
 
     # Формируем данные для API
     lab_data = {
-        "name": lab_name.capitalize(),
+        "test_type": lab_name.capitalize(),
         "date": format_datetime(get_utc_now()),
         "notes": f"Статус: {status}",
         "results": {
@@ -335,7 +335,7 @@ async def process_lab_notes(message: Message, state: FSMContext):
 
     # Формируем данные для API
     lab_data = {
-        "name": data["name"],
+        "test_type": data["name"],
         "date": format_datetime(get_utc_now()),
         "notes": notes,
         "results": {
@@ -417,6 +417,6 @@ async def list_lab_results(message: Message):
             if ref_min is not None and ref_max is not None
             else ""
         )
-        lab_list += f"• {lab['name']}: {value} {unit}{ref_range}\n"
+        lab_list += f"• {lab['test_type']}: {value} {unit}{ref_range}\n"
 
     await message.answer(lab_list, reply_markup=lab_kb)

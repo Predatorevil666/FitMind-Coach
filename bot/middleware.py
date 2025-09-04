@@ -5,6 +5,7 @@
 from aiogram.types import Message
 
 from bot.api_client import UserAPIClient, _api_client
+from bot.constants import AUTH_REQUIRED_MSG
 
 
 # Middleware для проверки авторизации
@@ -59,13 +60,7 @@ async def auth_middleware(handler, event, data):
                     return await handler(event, data)
 
                 # Авторизация не удалась или пользователь не найден
-                await event.answer(
-                    "⚠️ Для использования бота необходимо привязать ваш "
-                    "Telegram аккаунт.\n\n"
-                    "Если у вас уже есть аккаунт в системе, используйте "
-                    "команду /login для привязки.\n"
-                    "Для создания нового аккаунта используйте /register."
-                )
+                await event.answer(AUTH_REQUIRED_MSG)
                 return None
 
     return await handler(event, data)

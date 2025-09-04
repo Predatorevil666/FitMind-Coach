@@ -3,32 +3,32 @@
 ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
 {% if profile %}
 ПРОФИЛЬ:
-- Имя: {{ profile.name }}
 - Возраст: {{ profile.age }} лет
-- Пол: {{ profile.gender }}
 - Рост: {{ profile.height }} см
-- Вес: {{ profile.weight }} кг
+- Текущий вес: {{ profile.weight }} кг
+- Целевой вес: {{ profile.target_weight }} кг
 - Цель: {{ profile.goal }}
+- Тренировок в неделю: {{ profile.workouts_per_week }}
 {% endif %}
 
 {% if workouts %}
 ТРЕНИРОВКИ:
 {% for workout in workouts %}
-- {{ workout.date }}: {{ workout.type }}, длительность {{ workout.duration }} мин, интенсивность {{ workout.intensity }}/10
+- {{ workout.date }}: {{ workout.workout_type }}, {{ workout.name }}, длительность {{ workout.duration_minutes }} мин{% if workout.intensity %}, интенсивность {{ workout.intensity }}/10{% endif %}{% if workout.calories_burned %}, {{ workout.calories_burned }} ккал{% endif %}{% if workout.notes %}, заметки: {{ workout.notes }}{% endif %}
 {% endfor %}
 {% endif %}
 
 {% if meals %}
 ПИТАНИЕ:
 {% for meal in meals %}
-- {{ meal.date }}: {{ meal.type }}, {{ meal.description }}
+- {{ meal.date }}: {{ meal.meal_type }}, {{ meal.food_name }}{% if meal.calories %}, {{ meal.calories }} ккал{% endif %}{% if meal.protein_g %}, белки: {{ meal.protein_g }}г{% endif %}{% if meal.carbs_g %}, углеводы: {{ meal.carbs_g }}г{% endif %}{% if meal.fat_g %}, жиры: {{ meal.fat_g }}г{% endif %}{% if meal.notes %}, заметки: {{ meal.notes }}{% endif %}
 {% endfor %}
 {% endif %}
 
 {% if lab_results %}
 ЛАБОРАТОРНЫЕ ДАННЫЕ:
 {% for lab in lab_results %}
-- {{ lab.date }}: {{ lab.name }}, значение: {{ lab.value }} {{ lab.unit }} (норма: {{ lab.normal_range }})
+- {{ lab.date }}: {{ lab.test_type }}, значение: {{ lab.results.value }} {{ lab.results.unit }} (норма: {{ lab.results.reference_min }}-{{ lab.results.reference_max }}), статус: {{ lab.results.status }}{% if lab.notes %}, заметки: {{ lab.notes }}{% endif %}
 {% endfor %}
 {% endif %}
 

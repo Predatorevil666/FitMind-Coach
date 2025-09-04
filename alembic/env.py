@@ -16,6 +16,11 @@ config = context.config
 # Устанавливаем DATABASE_URL из переменной окружения
 database_url = os.getenv("DATABASE_URL")
 if database_url:
+    # Для миграций нужен синхронный драйвер, заменяем asyncpg на psycopg2
+    if "postgresql+asyncpg://" in database_url:
+        database_url = database_url.replace(
+            "postgresql+asyncpg://", "postgresql://"
+        )
     config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.

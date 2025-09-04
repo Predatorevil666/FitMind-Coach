@@ -149,12 +149,17 @@ async def show_menu(message: Message, profile: dict[str, Any]) -> None:
 
     actual_workouts_this_week = count_workouts_this_week(workouts or [])
 
+    # Формируем текст с активностью
+    activity_text = (
+        f"Активность: {format_workout_count(actual_workouts_this_week)} "
+        f"на этой неделе"
+    )
+
     await message.answer(
         f"🏁 *Твой профиль:*\n"
         f"Вес: {weight} кг → Цель: {target_weight} кг "
         f"(осталось {weight_diff} кг)\n"
-        f"Активность: {format_workout_count(actual_workouts_this_week)} "
-        f"на этой неделе\n\n"
+        f"{activity_text}\n\n"
         f"🔻 *Действия:*\n"
         f"/update - Обновить данные\n"
         f"/workout - Добавить тренировку\n"

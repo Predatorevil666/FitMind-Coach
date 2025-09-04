@@ -3,7 +3,6 @@ from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.core.utils import get_utc_now
@@ -34,12 +33,14 @@ class Workout(Base):
     date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=get_utc_now
     )
-    type: Mapped[WorkoutType] = mapped_column(default=WorkoutType.OTHER)
+    workout_type: Mapped[WorkoutType] = mapped_column(
+        default=WorkoutType.OTHER
+    )
     name: Mapped[str] = mapped_column(String(100))
     duration_minutes: Mapped[int] = mapped_column()
+    intensity: Mapped[Optional[int]] = mapped_column()  # 1-10 scale
     calories_burned: Mapped[Optional[int]] = mapped_column()
     notes: Mapped[Optional[str]] = mapped_column(Text)
-    exercises: Mapped[Optional[dict]] = mapped_column(JSONB)
 
     # Отношения
     user: Mapped["User"] = relationship(back_populates="workouts")

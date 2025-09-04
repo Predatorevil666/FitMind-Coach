@@ -21,7 +21,7 @@ from bot.config import (
     MISTRAL_MODEL,
     MISTRAL_TIMEOUT,
 )
-from bot.constants import WORKOUT_TYPES
+from bot.constants import ACTIVITY_MULTIPLIERS, MET_VALUES, WORKOUT_TYPES
 from bot.logger import logger
 
 
@@ -470,3 +470,86 @@ class MistralClient:
 
 # Создаем глобальный экземпляр клиента Mistral
 mistral_client = MistralClient()
+
+
+def calculate_bmr(
+    weight: float, height: float, age: int, gender: str = "male"
+) -> float:
+    """
+    Рассчитать базовый метаболизм (BMR) по формуле Harris-Benedict.
+
+    Args:
+        weight: Вес в кг
+        height: Рост в см
+        age: Возраст в годах
+        gender: Пол ("male" или "female")
+
+    Returns:
+        float: Базовый метаболизм в ккал/день
+    """
+    if gender.lower() == "female":
+        # BMR для женщин (Harris-Benedict)
+        bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age)
+    else:
+        # BMR для мужчин (Harris-Benedict)
+        bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age)
+
+    return round(bmr, 1)
+
+
+def calculate_calories_for_workout(
+    weight: float,
+    height: float,
+    age: int,
+    workout_type: str,
+    duration_minutes: int,
+    gender: str = "male",
+) -> int:
+    """
+    Рассчитать потраченные калории на тренировке с учётом BMR.
+
+    Args:
+        weight: Вес в кг
+        height: Рост в см
+        age: Возраст в годах
+        workout_type: Тип тренировки
+        duration_minutes: Продолжительность в минутах
+        gender: Пол ("male" или "female")
+
+    Returns:
+        int: Потраченные калории
+    """
+    met = MET_VALUES.get(workout_type, 5.0)
+
+    # Формула: калории = MET × вес(кг) × время(часы)
+    calories = met * weight * (duration_minutes / 60)
+
+    return round(calories)
+
+
+def calculate_daily_calories(
+    weight: float,
+    height: float,
+    age: int,
+    activity_level: str = "moderate",
+    gender: str = "male",
+) -> int:
+    """
+    Рассчитать дневную потребность в калориях.
+
+    Args:
+        weight: Вес в кг
+        height: Рост в см
+        age: Возраст в годах
+        activity_level: Уровень активности ("low", "moderate", "high")
+        gender: Пол ("male" или "female")
+
+    Returns:
+        int: Дневная потребность в калориях
+    """
+    bmr = calculate_bmr(weight, height, age, gender)
+
+    multiplier = ACTIVITY_MULTIPLIERS.get(activity_level, 1.55)
+    daily_calories = bmr * multiplier
+
+    return round(daily_calories)

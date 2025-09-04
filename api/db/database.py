@@ -18,9 +18,16 @@ if settings.SQLALCHEMY_DATABASE_URI.startswith("sqlite"):
         echo=settings.DB_ECHO,
     )
 else:
-    # Для других баз данных
+    # Для других баз данных (принудительно используем asyncpg для PostgreSQL)
+    db_url = settings.SQLALCHEMY_DATABASE_URI
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif not db_url.startswith("postgresql+asyncpg://"):
+        if "postgresql" in db_url and "+asyncpg" not in db_url:
+            db_url = db_url.replace("postgresql", "postgresql+asyncpg", 1)
+
     engine = create_async_engine(
-        settings.SQLALCHEMY_DATABASE_URI,
+        db_url,
         echo=settings.DB_ECHO,
     )
 

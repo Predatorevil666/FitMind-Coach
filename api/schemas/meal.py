@@ -11,14 +11,15 @@ class MealBase(BaseModel):
     """Базовая схема приема пищи."""
 
     date: datetime = Field(default_factory=get_utc_now)
-    type: MealType = MealType.OTHER
-    name: str = Field(..., min_length=1, max_length=100)
+    meal_type: MealType = MealType.OTHER
+    food_name: str = Field(..., min_length=1, max_length=200)
+    quantity: Optional[float] = Field(None, gt=0)
+    unit: Optional[str] = Field(None, max_length=50)
     calories: Optional[int] = Field(None, ge=0)
     protein_g: Optional[float] = Field(None, ge=0)
     carbs_g: Optional[float] = Field(None, ge=0)
     fat_g: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
-    foods: Optional[dict] = None
 
 
 class MealIn(MealBase):

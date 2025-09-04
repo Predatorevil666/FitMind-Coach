@@ -5,6 +5,15 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import KeyboardButton, Message, ReplyKeyboardMarkup
 
 from bot.api_client import UserAPIClient
+from bot.constants import (
+    MAX_AGE,
+    MAX_HEIGHT,
+    MIN_AGE,
+    MIN_HEIGHT,
+    PROFILE_EXISTS_MSG,
+    PROFILE_NOT_FOUND_MSG,
+    UPDATE_FAILED_MSG,
+)
 from bot.keyboards.reply import (
     cancel_kb,
     main_kb,
@@ -23,6 +32,8 @@ def get_user_api_client(telegram_id: int) -> UserAPIClient:
 # Определение состояний для создания профиля
 class ProfileForm(StatesGroup):
     goal = State()
+    age = State()
+    height = State()
     weight = State()
     target_weight = State()
     level = State()
@@ -31,6 +42,8 @@ class ProfileForm(StatesGroup):
 # Определение состояний для редактирования профиля
 class EditProfileForm(StatesGroup):
     goal = State()
+    age = State()
+    height = State()
     weight = State()
     target_weight = State()
     level = State()
@@ -40,6 +53,8 @@ class EditProfileForm(StatesGroup):
 class EditSingleFieldForm(StatesGroup):
     field_selection = State()
     goal = State()
+    age = State()
+    height = State()
     weight = State()
     target_weight = State()
     level = State()
@@ -104,9 +119,7 @@ async def view_profile(message: Message) -> None:
     telegram_id = message.from_user.id if message.from_user else None
 
     if not telegram_id:
-        await message.answer(
-            "Профиль не найден. Используйте команду /create_profile для создания."
-        )
+        await message.answer(PROFILE_NOT_FOUND_MSG)
         return
 
     # Получаем API клиент для пользователя
@@ -117,12 +130,12 @@ async def view_profile(message: Message) -> None:
     profile = await user_api_client.get_profile()
 
     if not profile:
-        await message.answer(
-            "Профиль не найден. Используйте команду /create_profile для создания."
-        )
+        await message.answer(PROFILE_NOT_FOUND_MSG)
         return
 
     # Получаем данные профиля
+    age = profile.get("age")
+    height = profile.get("height")
     weight = profile.get("weight", 0)  # Используем правильное поле weight
     target_weight = profile.get("target_weight", 0)
     goal = profile.get("goal", "")
@@ -148,12 +161,19 @@ async def view_profile(message: Message) -> None:
 
     goal_display = goal_map.get(goal, "Не указано")
 
+    # Формируем строки для возраста и роста
+    age_text = f"▫️ Возраст: {age} лет\n" if age else ""
+    height_text = f"▫️ Рост: {height} см\n" if height else ""
+
     await message.answer(
         f"👤 *Ваш профиль:*\n\n"
         f"▫️ Цель: {goal_display}\n"
+        f"{age_text}"
+        f"{height_text}"
         f"▫️ Текущий вес: {weight} кг\n"
         f"▫️ Целевой вес: {target_weight} кг\n"
-        f"▫️ На этой неделе: {format_workout_count(actual_workouts_this_week)}\n\n"
+        f"▫️ На этой неделе: "
+        f"{format_workout_count(actual_workouts_this_week)}\n\n"
         f"Для редактирования профиля нажмите '✏️ Редактировать профиль'",
         parse_mode="Markdown",
         reply_markup=profile_kb,
@@ -176,9 +196,7 @@ async def edit_profile(message: Message, state: FSMContext) -> None:
     profile = await user_api_client.get_profile()
 
     if not profile:
-        await message.answer(
-            "Профиль не найден. Используйте команду /create_profile для создания."
-        )
+        await message.answer(PROFILE_NOT_FOUND_MSG)
         return
 
     # Получаем текущие данные профиля
@@ -221,6 +239,10 @@ async def edit_profile(message: Message, state: FSMContext) -> None:
         keyboard=[
             [
                 KeyboardButton(text="Изменить цель"),
+                KeyboardButton(text="Изменить возраст"),
+            ],
+            [
+                KeyboardButton(text="Изменить рост"),
                 KeyboardButton(text="Изменить текущий вес"),
             ],
             [
@@ -243,7 +265,8 @@ async def edit_profile(message: Message, state: FSMContext) -> None:
         f"▫️ Цель: {current_goal_display}\n"
         f"▫️ Текущий вес: {current_weight} кг\n"
         f"▫️ Целевой вес: {current_target_weight} кг\n"
-        f"▫️ На этой неделе: {format_workout_count(actual_workouts_this_week)}",
+        f"▫️ На этой неделе: "
+        f"{format_workout_count(actual_workouts_this_week)}",
         reply_markup=edit_field_kb,
     )
 
@@ -309,6 +332,18 @@ async def process_field_selection(message: Message, state: FSMContext) -> None:
             "Выберите вашу цель:",
             reply_markup=goal_kb,
         )
+    elif message.text == "Изменить возраст":
+        await state.set_state(EditSingleFieldForm.age)
+        await message.answer(
+            f"Введите ваш возраст (от {MIN_AGE} до {MAX_AGE} лет):",
+            reply_markup=cancel_kb,
+        )
+    elif message.text == "Изменить рост":
+        await state.set_state(EditSingleFieldForm.height)
+        await message.answer(
+            f"Введите ваш рост (от {MIN_HEIGHT} до {MAX_HEIGHT} см):",
+            reply_markup=cancel_kb,
+        )
     elif message.text == "Изменить текущий вес":
         await state.set_state(EditSingleFieldForm.weight)
         await message.answer(
@@ -349,6 +384,10 @@ async def process_field_selection(message: Message, state: FSMContext) -> None:
             keyboard=[
                 [
                     KeyboardButton(text="Изменить цель"),
+                    KeyboardButton(text="Изменить возраст"),
+                ],
+                [
+                    KeyboardButton(text="Изменить рост"),
                     KeyboardButton(text="Изменить текущий вес"),
                 ],
                 [
@@ -385,7 +424,8 @@ async def process_field_selection(message: Message, state: FSMContext) -> None:
             f"▫️ Цель: {current_goal_display}\n"
             f"▫️ Текущий вес: {current_weight} кг\n"
             f"▫️ Целевой вес: {current_target_weight} кг\n"
-            f"▫️ На этой неделе: {format_workout_count(actual_workouts_this_week)}",
+            f"▫️ На этой неделе: "
+            f"{format_workout_count(actual_workouts_this_week)}",
             reply_markup=edit_field_kb,
         )
 
@@ -472,14 +512,14 @@ async def process_single_goal(message: Message, state: FSMContext) -> None:
     profile = await get_user_api_client(message.from_user.id).get_profile()
 
     if not profile:
-        await message.answer(
-            "Профиль не найден. Используйте команду /create_profile для создания."
-        )
+        await message.answer(PROFILE_NOT_FOUND_MSG)
         await state.clear()
         return
 
     # Создаем данные для обновления, сохраняя остальные поля
     profile_data = {
+        "age": profile.get("age"),
+        "height": profile.get("height"),
         "weight": profile.get("weight", 0),
         "target_weight": profile.get("target_weight", 0),
         "goal": goal,  # Обновляем только цель
@@ -498,11 +538,145 @@ async def process_single_goal(message: Message, state: FSMContext) -> None:
         )
     else:
         await message.answer(
-            "❌ Не удалось обновить профиль. Возможно, вы не авторизованы.",
+            UPDATE_FAILED_MSG,
             reply_markup=main_kb,  # Возвращаем в главное меню
         )
 
     await state.clear()
+
+
+# Обработчик ввода возраста при выборочном редактировании
+@router.message(EditSingleFieldForm.age)
+async def process_single_age(message: Message, state: FSMContext) -> None:
+    """Обработчик ввода возраста при выборочном редактировании."""
+    if not message.text:
+        await message.answer("Пожалуйста, введите ваш возраст.")
+        return
+
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer(
+            "Редактирование профиля отменено.",
+            reply_markup=profile_kb,
+        )
+        return
+
+    try:
+        age = int(message.text)
+        if age < MIN_AGE or age > MAX_AGE:
+            await message.answer(
+                f"❌ Возраст должен быть от {MIN_AGE} до {MAX_AGE} лет.\n\n"
+                "Пожалуйста, введите корректный возраст:"
+            )
+            return
+
+        # Получаем текущие данные профиля
+        profile = await get_user_api_client(message.from_user.id).get_profile()
+
+        if not profile:
+            await message.answer(PROFILE_NOT_FOUND_MSG)
+            await state.clear()
+            return
+
+        # Создаем данные для обновления, сохраняя остальные поля
+        profile_data = {
+            "age": age,  # Обновляем только возраст
+            "height": profile.get("height"),
+            "weight": profile.get("weight", 0),
+            "target_weight": profile.get("target_weight", 0),
+            "goal": profile.get("goal", ""),
+            "workouts_per_week": profile.get("workouts_per_week", 0),
+        }
+
+        # Отправляем запрос к API для обновления профиля
+        profile_result = await get_user_api_client(
+            message.from_user.id
+        ).update_profile(profile_data)
+
+        if profile_result:
+            await message.answer(
+                f"✅ Возраст успешно обновлен на {age} лет!",
+                reply_markup=main_kb,
+            )
+        else:
+            await message.answer(
+                UPDATE_FAILED_MSG,
+                reply_markup=main_kb,
+            )
+
+        await state.clear()
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите возраст числом (например: 25):",
+            reply_markup=cancel_kb,
+        )
+
+
+# Обработчик ввода роста при выборочном редактировании
+@router.message(EditSingleFieldForm.height)
+async def process_single_height(message: Message, state: FSMContext) -> None:
+    """Обработчик ввода роста при выборочном редактировании."""
+    if not message.text:
+        await message.answer("Пожалуйста, введите ваш рост.")
+        return
+
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer(
+            "Редактирование профиля отменено.",
+            reply_markup=profile_kb,
+        )
+        return
+
+    try:
+        height = float(message.text)
+        if height < MIN_HEIGHT or height > MAX_HEIGHT:
+            await message.answer(
+                f"❌ Рост должен быть от {MIN_HEIGHT} до {MAX_HEIGHT} см.\n\n"
+                "Пожалуйста, введите корректный рост:"
+            )
+            return
+
+        # Получаем текущие данные профиля
+        profile = await get_user_api_client(message.from_user.id).get_profile()
+
+        if not profile:
+            await message.answer(PROFILE_NOT_FOUND_MSG)
+            await state.clear()
+            return
+
+        # Создаем данные для обновления, сохраняя остальные поля
+        profile_data = {
+            "age": profile.get("age"),
+            "height": height,  # Обновляем только рост
+            "weight": profile.get("weight", 0),
+            "target_weight": profile.get("target_weight", 0),
+            "goal": profile.get("goal", ""),
+            "workouts_per_week": profile.get("workouts_per_week", 0),
+        }
+
+        # Отправляем запрос к API для обновления профиля
+        profile_result = await get_user_api_client(
+            message.from_user.id
+        ).update_profile(profile_data)
+
+        if profile_result:
+            await message.answer(
+                f"✅ Рост успешно обновлен на {height} см!",
+                reply_markup=main_kb,
+            )
+        else:
+            await message.answer(
+                UPDATE_FAILED_MSG,
+                reply_markup=main_kb,
+            )
+
+        await state.clear()
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите рост числом (например: 175):",
+            reply_markup=cancel_kb,
+        )
 
 
 # Обработчик ввода веса при выборочном редактировании
@@ -533,14 +707,14 @@ async def process_single_weight(message: Message, state: FSMContext) -> None:
         profile = await get_user_api_client(message.from_user.id).get_profile()
 
         if not profile:
-            await message.answer(
-                "Профиль не найден. Используйте команду /create_profile для создания."
-            )
+            await message.answer(PROFILE_NOT_FOUND_MSG)
             await state.clear()
             return
 
         # Создаем данные для обновления, сохраняя остальные поля
         profile_data = {
+            "age": profile.get("age"),
+            "height": profile.get("height"),
             "weight": weight,  # Обновляем только вес
             "target_weight": profile.get("target_weight", 0),
             "goal": profile.get("goal", ""),
@@ -559,7 +733,7 @@ async def process_single_weight(message: Message, state: FSMContext) -> None:
             )
         else:
             await message.answer(
-                "❌ Не удалось обновить профиль. Возможно, вы не авторизованы.",
+                UPDATE_FAILED_MSG,
                 reply_markup=main_kb,  # Возвращаем в главное меню
             )
 
@@ -605,14 +779,14 @@ async def process_single_target_weight(
         profile = await get_user_api_client(message.from_user.id).get_profile()
 
         if not profile:
-            await message.answer(
-                "Профиль не найден. Используйте команду /create_profile для создания."
-            )
+            await message.answer(PROFILE_NOT_FOUND_MSG)
             await state.clear()
             return
 
         # Создаем данные для обновления, сохраняя остальные поля
         profile_data = {
+            "age": profile.get("age"),
+            "height": profile.get("height"),
             "weight": profile.get("weight", 0),
             "target_weight": target_weight,  # Обновляем только целевой вес
             "goal": profile.get("goal", ""),
@@ -631,7 +805,7 @@ async def process_single_target_weight(
             )
         else:
             await message.answer(
-                "❌ Не удалось обновить профиль. Возможно, вы не авторизованы.",
+                UPDATE_FAILED_MSG,
                 reply_markup=main_kb,  # Возвращаем в главное меню
             )
 
@@ -670,14 +844,14 @@ async def process_single_level(message: Message, state: FSMContext) -> None:
     profile = await get_user_api_client(message.from_user.id).get_profile()
 
     if not profile:
-        await message.answer(
-            "Профиль не найден. Используйте команду /create_profile для создания."
-        )
+        await message.answer(PROFILE_NOT_FOUND_MSG)
         await state.clear()
         return
 
     # Создаем данные для обновления, сохраняя остальные поля
     profile_data = {
+        "age": profile.get("age"),
+        "height": profile.get("height"),
         "weight": profile.get("weight", 0),
         "target_weight": profile.get("target_weight", 0),
         "goal": profile.get("goal", ""),
@@ -698,7 +872,7 @@ async def process_single_level(message: Message, state: FSMContext) -> None:
         )
     else:
         await message.answer(
-            "❌ Не удалось обновить профиль. Возможно, вы не авторизованы.",
+            UPDATE_FAILED_MSG,
             reply_markup=main_kb,  # Возвращаем в главное меню
         )
 
@@ -720,9 +894,7 @@ async def cmd_create_profile(message: Message, state: FSMContext) -> None:
     profile = await user_api_client.get_profile()
 
     if profile:
-        await message.answer(
-            "У вас уже есть профиль. Используйте команду /profile для просмотра."
-        )
+        await message.answer(PROFILE_EXISTS_MSG)
         return
 
     # Создаем клавиатуру для выбора цели
@@ -779,10 +951,90 @@ async def process_goal(message: Message, state: FSMContext) -> None:
 
     goal = goal_map.get(message.text, "other")
     await state.update_data(goal=goal)
+    await state.set_state(ProfileForm.age)
+
+    await message.answer(
+        "Шаг 2/6: Введите ваш возраст (в годах):",
+        reply_markup=cancel_kb,
+    )
+
+
+# Обработчик ввода возраста
+@router.message(ProfileForm.age)
+async def process_age(message: Message, state: FSMContext) -> None:
+    """Обработчик ввода возраста."""
+    if not message.text:
+        await message.answer("Пожалуйста, введите ваш возраст.")
+        return
+
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer(
+            "Создание профиля отменено.",
+            reply_markup=main_kb,
+        )
+        return
+
+    # Валидация возраста
+    try:
+        age = int(message.text)
+        if age < MIN_AGE or age > MAX_AGE:
+            await message.answer(
+                f"❌ Возраст должен быть от {MIN_AGE} до {MAX_AGE} лет.\n\n"
+                "Пожалуйста, введите корректный возраст:"
+            )
+            return
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите возраст числом (например: 25):"
+        )
+        return
+
+    await state.update_data(age=age)
+    await state.set_state(ProfileForm.height)
+
+    await message.answer(
+        "Шаг 3/6: Введите ваш рост (в см):",
+        reply_markup=cancel_kb,
+    )
+
+
+# Обработчик ввода роста
+@router.message(ProfileForm.height)
+async def process_height(message: Message, state: FSMContext) -> None:
+    """Обработчик ввода роста."""
+    if not message.text:
+        await message.answer("Пожалуйста, введите ваш рост.")
+        return
+
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer(
+            "Создание профиля отменено.",
+            reply_markup=main_kb,
+        )
+        return
+
+    # Валидация роста
+    try:
+        height = float(message.text)
+        if height < MIN_HEIGHT or height > MAX_HEIGHT:
+            await message.answer(
+                f"❌ Рост должен быть от {MIN_HEIGHT} до {MAX_HEIGHT} см.\n\n"
+                "Пожалуйста, введите корректный рост:"
+            )
+            return
+    except ValueError:
+        await message.answer(
+            "❌ Пожалуйста, введите рост числом (например: 175):"
+        )
+        return
+
+    await state.update_data(height=height)
     await state.set_state(ProfileForm.weight)
 
     await message.answer(
-        "Шаг 2/4: Введите ваш текущий вес (в кг):",
+        "Шаг 4/6: Введите ваш текущий вес (в кг):",
         reply_markup=cancel_kb,
     )
 
@@ -818,7 +1070,7 @@ async def process_weight(message: Message, state: FSMContext) -> None:
     await state.set_state(ProfileForm.target_weight)
 
     await message.answer(
-        "Шаг 3/4: Введите ваш целевой вес (в кг):",
+        "Шаг 5/6: Введите ваш целевой вес (в кг):",
         reply_markup=cancel_kb,
     )
 
@@ -874,7 +1126,7 @@ async def process_target_weight(message: Message, state: FSMContext) -> None:
     )
 
     await message.answer(
-        "Шаг 4/4: Выберите ваш уровень подготовки:",
+        "Шаг 6/6: Выберите ваш уровень подготовки:",
         reply_markup=level_kb,
     )
 
@@ -913,6 +1165,8 @@ async def process_level(message: Message, state: FSMContext) -> None:
 
     # Создаем профиль через API
     profile_data = {
+        "age": data["age"],
+        "height": data["height"],
         "weight": data["weight"],
         "target_weight": data["target_weight"],
         "goal": data["goal"],
@@ -938,6 +1192,8 @@ async def process_level(message: Message, state: FSMContext) -> None:
         await message.answer(
             "✅ Профиль успешно создан!\n\n"
             f"▫️ Цель: {goal_display}\n"
+            f"▫️ Возраст: {data['age']} лет\n"
+            f"▫️ Рост: {data['height']} см\n"
             f"▫️ Текущий вес: {data['weight']} кг\n"
             f"▫️ Целевой вес: {data['target_weight']} кг\n"
             f"▫️ Уровень: {message.text}\n\n"
