@@ -1,1 +1,0 @@
-# FitMind Coach Application
